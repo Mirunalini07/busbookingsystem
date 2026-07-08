@@ -9,7 +9,11 @@
 <body>
     <div class="header">
         <div class="logo">🚌 {{ bus.bus_id }} Seats</div>
-        <div class="welcome">Journey: {{ journey_date }}</div>
+        <div class="journey-summary">
+            <div><strong>{{ bus.source }}</strong> → <strong>{{ bus.destination }}</strong></div>
+            <div>{{ bus.departure_time }} to {{ bus.arrival_time }} | ₹{{ bus.fare }}</div>
+            <div>Date: {{ journey_date }}</div>
+        </div>
     </div>
 
     <div class="section-title">Seat Selection</div>
