@@ -151,6 +151,7 @@ class BookingManager:
         source_bus_ids = low_buses[1:]
 
         self.logger.log("Bus alteration in process")
+        self.merge_alert_buses = set(low_buses)
         for src_id in source_bus_ids:
             src_bus = self.buses[src_id]
             for journey_date, seats in src_bus.seats.items():
@@ -168,7 +169,7 @@ class BookingManager:
             self.buses.pop(src_id)
             self.logger.log(f"Bus {src_id} merged into {destination_bus_id}")
 
-        self.merge_alert_buses = {destination_bus_id}
+        self.merge_alert_buses = set()
         return f"Merged into {destination_bus_id}"
 
     def can_undo_merge(self):

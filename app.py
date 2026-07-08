@@ -342,6 +342,7 @@ def merge_buses():
         return "Admin access required to merge buses ❌"
 
     merge_message = manager.merge_buses()
+    merge_alert_buses = set() if merge_message.startswith("Merged into") else manager.merge_alert_buses
     visitor_id = request.cookies.get("visitor_id")
     if not visitor_id:
         visitor_id = track_visitor('admin')
@@ -363,7 +364,7 @@ def merge_buses():
         user_role="admin",
         merge_message=merge_message,
         can_undo_merge=manager.can_undo_merge(),
-        merge_alert_buses=manager.merge_alert_buses
+        merge_alert_buses=merge_alert_buses
     ))
     response.set_cookie("visitor_id", visitor_id, httponly=True, samesite="Lax")
     response.set_cookie("user_role", "admin", httponly=True, samesite="Lax")
@@ -376,6 +377,7 @@ def undo_merge():
         return "Admin access required to undo merge ❌"
 
     undo_message = manager.undo_merge()
+    merge_alert_buses = set() if undo_message.startswith("Merge undone") else manager.merge_alert_buses
     visitor_id = request.cookies.get("visitor_id")
     if not visitor_id:
         visitor_id = track_visitor('admin')
@@ -397,7 +399,7 @@ def undo_merge():
         user_role="admin",
         merge_message=undo_message,
         can_undo_merge=manager.can_undo_merge(),
-        merge_alert_buses=manager.merge_alert_buses
+        merge_alert_buses=merge_alert_buses
     ))
     response.set_cookie("visitor_id", visitor_id, httponly=True, samesite="Lax")
     response.set_cookie("user_role", "admin", httponly=True, samesite="Lax")
