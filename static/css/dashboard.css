@@ -1,0 +1,375 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial, Helvetica, sans-serif;
+}
+
+body{
+    background:linear-gradient(135deg,#081C3A,#123B7A,#1D5DB8);
+    min-height:100vh;
+    color:white;
+    padding-bottom:40px;
+}
+
+/* ================= HEADER ================= */
+
+.header{
+    width:min(1200px, 95%);
+    margin:25px auto 0;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:22px 35px;
+    border-radius:20px;
+    background:rgba(255,255,255,.12);
+    backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.18);
+    box-shadow:0 10px 35px rgba(0,0,0,.30);
+}
+
+.logo{
+    font-size:clamp(22px, 2.2vw, 30px);
+    font-weight:bold;
+}
+
+.welcome{
+    font-size:clamp(16px, 1.6vw, 20px);
+    color:#dcecff;
+}
+
+.dashboard-actions{
+    width:min(1200px,95%);
+    margin:20px auto;
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    gap:16px;
+    flex-wrap:wrap;
+}
+
+.inline-form{
+    display:inline-flex;
+    align-items:center;
+    gap:12px;
+}
+
+.merge-button,
+.undo-button{
+    padding:12px 20px;
+    border:none;
+    border-radius:14px;
+    cursor:pointer;
+    font-size:0.95rem;
+    font-weight:700;
+    transition:transform .2s ease, background .2s ease;
+}
+
+.merge-button{
+    background:#00c6ff;
+    color:#071928;
+}
+
+.merge-button:hover{
+    background:#69e0ff;
+    transform:translateY(-2px);
+}
+
+.alert-button{
+    padding:12px 20px;
+    border:none;
+    border-radius:14px;
+    background:#ffbd59;
+    color:#071928;
+    font-weight:700;
+    cursor:not-allowed;
+}
+
+.undo-button:hover{
+    background:#ff8484;
+    transform:translateY(-2px);
+}
+
+.merge-message{
+    color:#e0f7ff;
+    font-size:0.95rem;
+    line-height:1.4;
+}
+
+.stats-container{
+    width:min(1200px, 95%);
+    margin:24px auto 0;
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:18px;
+}
+
+.stat-box{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    min-height:132px;
+    background:rgba(255,255,255,.10);
+    backdrop-filter:blur(12px);
+    border-radius:18px;
+    padding:20px;
+    border:1px solid rgba(255,255,255,.15);
+    transition:.3s;
+    box-shadow:0 8px 25px rgba(0,0,0,.25);
+}
+
+.stat-box:hover{
+    transform:translateY(-6px);
+    box-shadow:0 0 25px rgba(0,198,255,.55);
+}
+
+.stat-title{
+    color:#DCEBFF;
+    font-size:16px;
+}
+
+.stat-value{
+    margin-top:10px;
+    font-size:34px;
+    font-weight:bold;
+}
+
+.stat-meta{
+    margin-top:8px;
+    font-size:16px;
+    color:#eef7ff;
+    line-height:1.5;
+}
+
+/* ================= SECTION TITLE ================= */
+
+.section-title{
+    width:min(1200px, 95%);
+    margin:36px auto 16px;
+    font-size:28px;
+    font-weight:bold;
+}
+
+/* ================= BUS LIST ================= */
+
+.bus-container{
+    width:min(1200px, 95%);
+    margin:auto;
+    padding-bottom:40px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+}
+
+.bus-card{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:20px;
+    background:rgba(255,255,255,.10);
+    backdrop-filter:blur(12px);
+    border-radius:18px;
+    padding:25px;
+    border:1px solid rgba(255,255,255,.15);
+    transition:.35s;
+    box-shadow:0 10px 25px rgba(0,0,0,.25);
+}
+
+.bus-card:hover{
+    transform:translateY(-5px);
+    box-shadow:0 0 30px rgba(0,198,255,.45);
+}
+
+.bus-left{
+    flex:1;
+    min-width:0;
+}
+
+.seat-grid {
+    width:min(1200px, 95%);
+    margin:20px auto 40px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+}
+
+.seat-row {
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    justify-content:center;
+}
+
+.seat-card {
+    width:105px;
+    background:rgba(255,255,255,.10);
+    border:1px solid rgba(255,255,255,.15);
+    border-radius:16px;
+    padding:16px 12px;
+    text-align:center;
+    box-shadow:0 8px 18px rgba(0,0,0,.20);
+}
+
+.seat-card .seat-number {
+    font-size:18px;
+    font-weight:bold;
+    margin-bottom:8px;
+}
+
+.seat-card .seat-status {
+    margin-bottom:10px;
+    font-size:14px;
+    color:#dce8ff;
+}
+
+.seat-card .seat-note {
+    font-size:13px;
+    color:#a9d6ff;
+    margin-bottom:12px;
+}
+
+.journey-date-picker {
+    width:min(1200px, 95%);
+    margin:0 auto 20px;
+    display:flex;
+    justify-content:center;
+}
+
+#dateForm {
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:rgba(255,255,255,.08);
+    padding:12px 16px;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.16);
+}
+
+#dateForm label {
+    color:#dce8ff;
+    font-size:14px;
+}
+
+#dateForm input[type="date"] {
+    padding:10px;
+    border-radius:10px;
+    border:none;
+    outline:none;
+    background:rgba(255,255,255,.12);
+    color:#fff;
+}
+
+#dateForm button {
+    padding:10px 18px;
+    border:none;
+    border-radius:10px;
+    background:#00c6ff;
+    color:#fff;
+    cursor:pointer;
+    transition:.3s;
+}
+
+#dateForm button:hover {
+    background:#0072ff;
+}
+
+.seat-card button {
+    width:100%;
+    padding:10px 0;
+    font-size:14px;
+}
+
+.seat-card.seat-available {
+    background:rgba(0,198,255,.12);
+}
+
+.seat-card.seat-locked {
+    background:rgba(255,215,0,.14);
+}
+
+.seat-card.seat-booked {
+    background:rgba(255,80,80,.14);
+}
+
+.bus-right a button {
+    width:auto;
+    padding:12px 24px;
+    margin-top:20px;
+}
+
+.bus-right{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    flex-shrink:0;
+}
+
+.bus-id{
+    font-size:28px;
+    font-weight:bold;
+    margin-bottom:10px;
+}
+
+.route{
+    font-size:22px;
+    margin-bottom:12px;
+}
+
+.details{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:12px;
+    color:#dbe8ff;
+    margin-top:6px;
+    font-size:16px;
+    line-height:1.6;
+}
+
+/* ================= BUTTON ================= */
+
+button{
+    background:#00C6FF;
+    color:white;
+    border:none;
+    border-radius:10px;
+    padding:14px 24px;
+    cursor:pointer;
+    font-size:16px;
+    font-weight:bold;
+    transition:.3s;
+}
+
+button:hover{
+    background:#0072ff;
+    transform:scale(1.08);
+}
+
+/* ================= MOBILE ================= */
+
+@media(max-width:900px){
+    .header{
+        flex-direction:column;
+        gap:12px;
+        text-align:center;
+    }
+
+    .stats-container{
+        gap:14px;
+    }
+
+    .bus-card{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:20px;
+    }
+
+    .bus-right{
+        width:100%;
+        justify-content:flex-start;
+    }
+
+    .bus-right button{
+        width:100%;
+    }
+}

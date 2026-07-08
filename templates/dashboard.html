@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Booking Dashboard</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+
+<body>
+
+    <!-- HEADER -->
+
+    <div class="header">
+
+        <div class="logo">
+            🚌 Bus Booking System
+        </div>
+
+        <div class="welcome">
+            Welcome, {{ 'Admin' if user_role == 'admin' else 'Guest' }} 👋
+        </div>
+
+    </div>
+
+    {% if user_role == 'admin' %}
+    <div class="dashboard-actions">
+        <div>
+            <form method="POST" action="/merge-buses" class="inline-form">
+                <button type="submit" class="merge-button">Merge low-load buses</button>
+            </form>
+            {% if merge_message %}
+            <span class="merge-message">{{ merge_message }}</span>
+            {% endif %}
+        </div>
+        {% if can_undo_merge %}
+        <form method="POST" action="/undo-merge" class="inline-form">
+            <button type="submit" class="undo-button">Undo merge</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
+
+
+    <!-- STATISTICS -->
+
+    <div class="stats-container">
+
+        <div class="stat-box">
+            <div class="stat-title">Visitors</div>
+            <div class="stat-value">{{ visitor_count }}</div>
+        </div>
+
+        <div class="stat-box">
+            <div class="stat-title">Visitors by Device</div>
+            <div class="stat-meta">Desktop: {{ device_counts['Desktop'] }}</div>
+            <div class="stat-meta">Mobile: {{ device_counts['Mobile'] }}</div>
+            <div class="stat-meta">Tablet: {{ device_counts['Tablet'] }}</div>
+        </div>
+
+        <div class="stat-box">
+            <div class="stat-title">Total Buses</div>
+            <div class="stat-value">{{ total_buses }}</div>
+        </div>
+
+        <div class="stat-box">
+            <div class="stat-title">CPU Idle Time</div>
+            <div class="stat-value">{{ cpu_idle_time }} sec</div>
+        </div>
+
+        <div class="stat-box">
+            <div class="stat-title">Max CPU Usage</div>
+            <div class="stat-value">{{ max_cpu_usage }}%</div>
+        </div>
+
+        <div class="stat-box">
+            <div class="stat-title">Max Physical Memory</div>
+            <div class="stat-value">{{ max_physical_memory }} MB</div>
+        </div>
+
+        <div class="stat-box">
+            <div class="stat-title">Max Virtual Memory</div>
+            <div class="stat-value">{{ max_virtual_memory }} MB</div>
+        </div>
+
+    </div>
+
+
+
+    <!-- BUS LIST -->
+
+    <div class="section-title">
+
+        Available Buses
+
+    </div>
+
+
+
+    <div class="bus-container">
+
+        {% for bus in buses %}
+
+        <div class="bus-card">
+
+            <div class="bus-left">
+
+                <div class="bus-id">
+                    {{ bus.bus_id }}
+                </div>
+
+                <div class="route">
+
+                    {{ bus.source }}
+                    →
+
+                    {{ bus.destination }}
+
+                </div>
+
+                <div class="details">
+
+                    Departure :
+                    <strong>{{ bus.departure_time }}</strong>
+
+                    &nbsp;&nbsp;&nbsp;
+
+                    Arrival :
+                    <strong>{{ bus.arrival_time }}</strong>
+
+                </div>
+
+                <div class="details">
+
+                    Fare :
+                    ₹{{ bus.fare }}
+
+                    &nbsp;&nbsp;&nbsp;
+
+                    Available Seats :
+
+                    {{ bus.available_seats(journey_date) }}
+
+                    /
+                    {{ bus.total_seats }}
+
+                </div>
+
+            </div>
+
+
+
+            <div class="bus-right">
+
+                {% if bus.bus_id in merge_alert_buses %}
+                <button class="alert-button" disabled>Bus alteration in process</button>
+            {% else %}
+                <a href="/seats/{{ bus.bus_id }}">
+                    <button>View Seats</button>
+                </a>
+            {% endif %}
+
+            </div>
+
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+</body>
+
+</html>

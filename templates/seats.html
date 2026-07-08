@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Seats</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="logo">🚌 {{ bus.bus_id }} Seats</div>
+        <div class="welcome">Journey: {{ journey_date }}</div>
+    </div>
+
+    <div class="section-title">Seat Selection</div>
+    <div class="journey-date-picker">
+        <form id="dateForm" method="GET" action="{{ url_for('seats', bus_id=bus.bus_id) }}">
+            <label for="date">Choose journey date:</label>
+            <input type="date" id="date" name="date" value="{{ journey_date }}" min="{{ today_date }}">
+            <button type="submit">Change Date</button>
+        </form>
+    </div>
+    <div class="seat-grid">
+        {% for row in seat_rows %}
+        <div class="seat-row">
+            {% for seat in row %}
+            <div class="seat-card seat-{{ seat.status|lower }}">
+                <div class="seat-number">{{ seat.seat_number }}</div>
+                <div class="seat-status">{{ seat.status }}</div>
+                {% if seat.status == 'LOCKED' and not seat.locked_by_current %}
+                    <div class="seat-note" data-remaining="{{ seat.locked_remaining }}">Locked for <span class="remaining">{{ seat.locked_remaining // 60 }}:{{ '%02d' % (seat.locked_remaining % 60) }}</span></div>
+                {% elif seat.status == 'LOCKED' and seat.locked_by_current %}
+                    <div class="seat-note" data-remaining="{{ seat.locked_remaining }}">Your hold (<span class="remaining">{{ seat.locked_remaining // 60 }}:{{ '%02d' % (seat.locked_remaining % 60) }}</span>)</div>
+                {% elif seat.status == 'BOOKED' and seat.booked_by_current %}
+                    <div class="seat-note">Booked by you</div>
+                {% elif seat.status == 'BOOKED' %}
+                    <div class="seat-note">Booked</div>
+                {% endif %}
+                <form method="POST" action="{{ url_for('seat_action', bus_id=bus.bus_id, seat_number=seat.seat_number) }}">
+                    <input type="hidden" name="journey_date" value="{{ journey_date }}">
+                    {% if seat.status == 'AVAILABLE' %}
+                        <button name="action" value="lock">Lock Seat</button>
+                    {% elif seat.status == 'LOCKED' and seat.locked_by_current %}
+                        <button name="action" value="book">Book Now</button>
+                        <button name="action" value="cancel">Cancel</button>
+                    {% elif seat.status == 'BOOKED' and seat.booked_by_current %}
+                        <button name="action" value="cancel">Cancel Booking</button>
+                    {% else %}
+                        <button disabled>Unavailable</button>
+                    {% endif %}
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="bus-right">
+        <a href="/">
+            <button>Back to Dashboard</button>
+        </a>
+    </div>
+
+    <script>
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const notes = document.querySelectorAll('.seat-note[data-remaining]');
+            notes.forEach((note) => {
+                let remaining = parseInt(note.dataset.remaining, 10);
+                const span = note.querySelector('.remaining');
+                if (isNaN(remaining) || !span) return;
+
+                const interval = setInterval(() => {
+                    remaining -= 1;
+                    if (remaining <= 0) {
+                        clearInterval(interval);
+                        note.textContent = 'Lock expired';
+                        return;
+                    }
+                    span.textContent = formatTime(remaining);
+                }, 1000);
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bus Booking Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+<div class="box">
+    <h2>Bus Booking System</h2>
+
+    <form method="POST" action="/login" id="loginForm">
+        <div class="slider-toggle" id="roleSlider">
+            <span class="slider-label active" data-role="user">Normal User</span>
+            <span class="slider-label" data-role="admin">Admin</span>
+            <div class="slider-thumb"></div>
+        </div>
+
+        <input type="hidden" name="role" value="user" id="roleInput">
+
+        <div id="admin-fields" class="admin-fields">
+            <input type="text" name="username" placeholder="Admin Username" id="username">
+            <input type="password" name="password" placeholder="Password" id="password">
+        </div>
+
+        <button type="submit">Continue</button>
+    </form>
+</div>
+
+<script>
+    const roleSlider = document.getElementById('roleSlider');
+    const roleInput = document.getElementById('roleInput');
+    const adminFields = document.getElementById('admin-fields');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const roleLabels = document.querySelectorAll('.slider-label');
+
+    function selectRole(role) {
+        roleInput.value = role;
+        const showAdmin = role === 'admin';
+        adminFields.classList.toggle('show', showAdmin);
+        usernameInput.required = showAdmin;
+        passwordInput.required = showAdmin;
+
+        roleLabels.forEach((label) => {
+            label.classList.toggle('active', label.dataset.role === role);
+        });
+        roleSlider.dataset.role = role;
+    }
+
+    roleSlider.addEventListener('click', (event) => {
+        const label = event.target.closest('.slider-label');
+        if (!label) return;
+        selectRole(label.dataset.role);
+    });
+
+    selectRole('user');
+</script>
+
+</body>
+</html>
