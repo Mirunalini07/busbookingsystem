@@ -28,7 +28,11 @@
         {% for row in seat_rows %}
         <div class="seat-row">
             {% for seat in row %}
-            <div class="seat-card seat-{{ seat.status|lower }}">
+            <div class="seat-card seat-{{ seat.status|lower }} {% if seat.status == 'AVAILABLE' %}available{% endif %}"
+                data-seat-number="{{ seat.seat_number }}"
+                data-seat-status="{{ seat.status }}"
+                data-locked-by-current="{{ 'true' if seat.status == 'LOCKED' and seat.locked_by_current else 'false' }}"
+                data-booked-by-current="{{ 'true' if seat.status == 'BOOKED' and seat.booked_by_current else 'false' }}">
                 <div class="seat-number">{{ seat.seat_number }}</div>
                 <div class="seat-status">{{ seat.status }}</div>
                 {% if seat.status == 'LOCKED' and not seat.locked_by_current %}
@@ -40,23 +44,25 @@
                 {% elif seat.status == 'BOOKED' %}
                     <div class="seat-note">Booked</div>
                 {% endif %}
-                <form method="POST" action="{{ url_for('seat_action', bus_id=bus.bus_id, seat_number=seat.seat_number) }}">
-                    <input type="hidden" name="journey_date" value="{{ journey_date }}">
-                    {% if seat.status == 'AVAILABLE' %}
-                        <button name="action" value="lock">Lock Seat</button>
-                    {% elif seat.status == 'LOCKED' and seat.locked_by_current %}
-                        <button name="action" value="book">Book Now</button>
-                        <button name="action" value="cancel">Cancel</button>
-                    {% elif seat.status == 'BOOKED' and seat.booked_by_current %}
-                        <button name="action" value="cancel">Cancel Booking</button>
-                    {% else %}
-                        <button disabled>Unavailable</button>
-                    {% endif %}
-                </form>
             </div>
+            {% if loop.index == 2 %}
+                <div class="bus-aisle-break"></div>
+            {% endif %}
             {% endfor %}
         </div>
         {% endfor %}
+    </div>
+
+    <div class="seat-actions" id="seatActions">
+        <div class="action-info">Selected Seats: <span id="selectedSeat">None</span></div>
+        <form id="seatActionForm" method="POST" action="">
+            <input type="hidden" name="journey_date" value="{{ journey_date }}">
+            <input type="hidden" name="action" id="actionInput" value="">
+            <input type="hidden" name="selected_seats" id="selectedSeatsInput" value="">
+        </form>
+        <button class="book-now" id="bookNowBtn" type="button">Book Now</button>
+        <button class="cancel-seat" id="cancelSeatBtn" type="button">Cancel</button>
+        <button class="close-action" id="closeActionBtn" type="button">Close</button>
     </div>
 
     <div class="bus-right">
@@ -72,7 +78,95 @@
             return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
 
+        function postSeatAction(busId, seatNumbers, action, journeyDate) {
+            const form = document.getElementById('seatActionForm');
+            form.action = `/seat-action/${busId}`;
+            document.getElementById('actionInput').value = action;
+            document.getElementById('selectedSeatsInput').value = Array.isArray(seatNumbers) ? seatNumbers.join(',') : seatNumbers;
+            form.submit();
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            const seatCards = document.querySelectorAll('.seat-card');
+            const actions = document.getElementById('seatActions');
+            const selectedSeat = document.getElementById('selectedSeat');
+            const bookNowBtn = document.getElementById('bookNowBtn');
+            const cancelSeatBtn = document.getElementById('cancelSeatBtn');
+            const closeActionBtn = document.getElementById('closeActionBtn');
+            const selectedSeatsInput = document.getElementById('selectedSeatsInput');
+            let selectedSeats = [];
+
+            seatCards.forEach((card) => {
+                const status = card.dataset.seatStatus;
+                if (status === 'BOOKED' || status === 'LOCKED') {
+                    card.classList.remove('available');
+                }
+                card.addEventListener('click', () => {
+                    if (status === 'BOOKED' && card.dataset.bookedByCurrent !== 'true') return;
+                    if (status === 'LOCKED' && card.dataset.lockedByCurrent !== 'true') return;
+
+                    const seatNumber = card.dataset.seatNumber;
+                    const isSelected = card.classList.toggle('selected');
+
+                    if (isSelected) {
+                        selectedSeats.push(seatNumber);
+                    } else {
+                        selectedSeats = selectedSeats.filter((num) => num !== seatNumber);
+                    }
+
+                    selectedSeat.textContent = selectedSeats.length > 0 ? selectedSeats.join(', ') : 'None';
+                    selectedSeatsInput.value = selectedSeats.join(',');
+                    actions.classList.toggle('visible', selectedSeats.length > 0);
+
+                    const journeyDate = '{{ journey_date }}';
+                    const busId = '{{ bus.bus_id }}';
+
+                    // Check if any selected seat is booked by current user
+                    const hasBookedSeats = selectedSeats.some((seatNum) => {
+                        const card = Array.from(seatCards).find((c) => c.dataset.seatNumber === seatNum);
+                        return card && card.dataset.seatStatus === 'BOOKED' && card.dataset.bookedByCurrent === 'true';
+                    });
+
+                    // Check if any selected seat is available or locked by current user
+                    const hasLockableSeats = selectedSeats.some((seatNum) => {
+                        const card = Array.from(seatCards).find((c) => c.dataset.seatNumber === seatNum);
+                        return card && (card.dataset.seatStatus === 'AVAILABLE' || 
+                                       (card.dataset.seatStatus === 'LOCKED' && card.dataset.lockedByCurrent === 'true'));
+                    });
+
+                    // Update button labels and visibility
+                    if (hasBookedSeats) {
+                        bookNowBtn.textContent = 'Cancel Booking';
+                        bookNowBtn.classList.add('cancel-seat');
+                        bookNowBtn.classList.remove('book-now');
+                        bookNowBtn.onclick = () => {
+                            postSeatAction(busId, selectedSeats, 'cancel', journeyDate);
+                        };
+                        cancelSeatBtn.style.display = 'none';
+                    } else if (hasLockableSeats) {
+                        bookNowBtn.textContent = 'Book Now';
+                        bookNowBtn.classList.remove('cancel-seat');
+                        bookNowBtn.classList.add('book-now');
+                        bookNowBtn.onclick = () => {
+                            postSeatAction(busId, selectedSeats, 'book', journeyDate);
+                        };
+                        cancelSeatBtn.style.display = 'inline-block';
+                        cancelSeatBtn.onclick = () => {
+                            postSeatAction(busId, selectedSeats, 'cancel', journeyDate);
+                        };
+                    }
+                });
+            });
+
+            closeActionBtn.addEventListener('click', () => {
+                if (selectedSeats.length === 0) return;
+                seatCards.forEach((c) => c.classList.remove('selected'));
+                selectedSeats = [];
+                selectedSeat.textContent = 'None';
+                selectedSeatsInput.value = '';
+                actions.classList.remove('visible');
+            });
+
             const notes = document.querySelectorAll('.seat-note[data-remaining]');
             notes.forEach((note) => {
                 let remaining = parseInt(note.dataset.remaining, 10);

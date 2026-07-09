@@ -51,7 +51,7 @@ class BookingManager:
             if seat.locked_by != user_id:     #Only the person who locked it can confirm booking
                 return "You must lock the seat first"
 
-            seat.book(booking_id)
+            seat.book(booking_id, user_id)
             self.logger.log(f"{user_id} booked seat {seat_number} in bus {bus_id}")
             self.add_extra_buses_if_needed()
         return "Seat booked successfully"
@@ -66,10 +66,13 @@ class BookingManager:
         seat = seats[seat_number - 1]
 
         with self.lock:
-            if seat.locked_by != user_id:
+            if seat.status == "LOCKED" and seat.locked_by == user_id:
+                seat.release()
+            elif seat.status == "BOOKED" and getattr(seat, "booked_by", None) == user_id:
+                seat.release()
+            else:
                 return "You cannot cancel this seat"
 
-            seat.release()     #status → AVAILABLE, locked_by → None, lock_time → None, booking_id → None
             self.logger.log(f"{user_id} cancelled seat {seat_number} in bus {bus_id}")
         return "Booking cancelled successfully"
     def _check_and_unlock(self, seat):
@@ -161,6 +164,7 @@ class BookingManager:
                         if dest_seats[i].status == "AVAILABLE":
                             dest_seats[i].status = "BOOKED"
                             dest_seats[i].booking_id = seat.booking_id
+                            dest_seats[i].booked_by = getattr(seat, "booked_by", None)
                             dest_seats[i].locked_by = None
                         else:
                             self.logger.log(

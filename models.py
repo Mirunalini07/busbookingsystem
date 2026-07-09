@@ -6,6 +6,7 @@ class Seat:
         self.locked_by = None
         self.lock_time = None
         self.booking_id = None
+        self.booked_by = None
 
     def lock(self, user_id):
         self.status = "LOCKED"
@@ -17,15 +18,19 @@ class Seat:
         self.locked_by = None
         self.lock_time = None
 
-    def book(self, booking_id):
+    def book(self, booking_id, user_id=None):
         self.status = "BOOKED"
         self.booking_id = booking_id
+        self.booked_by = user_id
+        self.locked_by = None
+        self.lock_time = None
 
     def release(self):
         self.status = "AVAILABLE"
         self.locked_by = None
         self.lock_time = None
         self.booking_id = None
+        self.booked_by = None
 
     def is_available(self):
         return self.status == "AVAILABLE"

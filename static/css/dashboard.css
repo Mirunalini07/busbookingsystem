@@ -193,39 +193,141 @@ body{
     gap:18px;
 }
 
+.bus-aisle {
+    height:18px;
+    width:100%;
+    background:rgba(255,255,255,0.08);
+    border-radius:999px;
+    margin:10px 0;
+}
+
 .seat-row {
     display:flex;
-    flex-wrap:wrap;
-    gap:12px;
     justify-content:center;
+    gap:18px;
+    flex-wrap:wrap;
 }
 
 .seat-card {
-    width:105px;
-    background:rgba(255,255,255,.10);
-    border:1px solid rgba(255,255,255,.15);
-    border-radius:16px;
-    padding:16px 12px;
+    width:86px;
+    min-height:98px;
+    background:rgba(255,255,255,.06);
+    border:2px solid rgba(255,255,255,.15);
+    border-radius:18px 18px 10px 10px;
+    padding:14px 10px;
     text-align:center;
-    box-shadow:0 8px 18px rgba(0,0,0,.20);
+    box-shadow:0 8px 18px rgba(0,0,0,.18);
+    position:relative;
+    transition:transform .2s ease, border-color .2s ease, background .2s ease;
+    cursor:pointer;
+}
+
+.seat-row .bus-aisle-break {
+    width:40px;
+}
+
+.seat-card:hover {
+    transform:translateY(-2px);
+}
+
+.seat-card.selected {
+    border-color:#00d877;
+    background:rgba(0,216,119,.22);
+}
+
+.seat-card.available {
+    background:rgba(255,255,255,.06);
+}
+
+.seat-card.locked {
+    background:#f8e17c;
+    border-color:#f2c94c;
+}
+
+.seat-card.booked {
+    background:#fb8080;
+    border-color:#ff5c5c;
+}
+
+.seat-card[data-seat-status="AVAILABLE"] {
+    background: transparent;
+}
+
+.seat-card[data-seat-status="LOCKED"] {
+    background: #f7dc6f;
+}
+
+.seat-card[data-seat-status="BOOKED"] {
+    background: #ff7b7b;
+}
+
+.seat-card.locked {
+    background:#f8e17c;
+    border-color:#f2c94c;
+}
+
+.seat-card.booked {
+    background:#fb8080;
+    border-color:#ff5c5c;
 }
 
 .seat-card .seat-number {
     font-size:18px;
-    font-weight:bold;
+    font-weight:800;
     margin-bottom:8px;
 }
 
 .seat-card .seat-status {
     margin-bottom:10px;
-    font-size:14px;
-    color:#dce8ff;
+    font-size:13px;
+    color:#071928;
 }
 
 .seat-card .seat-note {
-    font-size:13px;
-    color:#a9d6ff;
-    margin-bottom:12px;
+    font-size:12px;
+    color:#071928;
+    margin-bottom:10px;
+}
+
+.seat-actions {
+    width:min(1200px,95%);
+    margin:0 auto 20px;
+    display:none;
+    justify-content:center;
+    gap:12px;
+    align-items:center;
+    padding:16px;
+    background:rgba(255,255,255,.10);
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:18px;
+}
+
+.seat-actions.visible {
+    display:flex;
+}
+
+.seat-actions button {
+    min-width:140px;
+    padding:12px 18px;
+}
+
+.seat-actions button.book-now {
+    background:#00d877;
+    color:#071928;
+}
+
+.seat-actions button.cancel-seat {
+    background:#ff5252;
+    color:#071928;
+}
+
+.seat-actions button.close-action {
+    background:rgba(255,255,255,.12);
+    color:#f8f9fb;
+}
+
+.seat-card input[type="radio"] {
+    display:none;
 }
 
 .journey-date-picker {

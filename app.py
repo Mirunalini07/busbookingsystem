@@ -166,7 +166,7 @@ def get_seat_info(bus, journey_date, visitor_id):
                 "seat_number": seat.seat_number,
                 "status": seat.status,
                 "locked_by_current": seat.status == "LOCKED" and seat.locked_by == visitor_id,
-                "booked_by_current": seat.status == "BOOKED" and seat.locked_by == visitor_id,
+                "booked_by_current": seat.status == "BOOKED" and getattr(seat, "booked_by", None) == visitor_id,
                 "locked_remaining": locked_remaining,
             })
 
@@ -298,7 +298,7 @@ def seats(bus_id):
     journey_date = request.args.get("date") or datetime.utcnow().strftime("%Y-%m-%d")
     today_date = datetime.utcnow().strftime("%Y-%m-%d")
     seat_infos = get_seat_info(bus, journey_date, visitor_id)
-    seat_rows = [seat_infos[i:i+8] for i in range(0, len(seat_infos), 8)]
+    seat_rows = [seat_infos[i:i+4] for i in range(0, len(seat_infos), 4)]
 
     response = make_response(render_template(
         "seats.html",
@@ -327,6 +327,46 @@ def seat_action(bus_id, seat_number):
         manager.book_seat(bus_id, journey_date, seat_number, visitor_id, booking_id)
     elif action == "cancel":
         manager.cancel_booking(bus_id, journey_date, seat_number, visitor_id)
+    else:
+        return "Invalid booking action"
+
+    response = redirect(url_for("seats", bus_id=bus_id, date=journey_date))
+    response.set_cookie("visitor_id", visitor_id, httponly=True, samesite="Lax")
+    return response
+
+
+@app.route("/seat-action/<bus_id>", methods=["POST"])
+def seat_action_multi(bus_id):
+    visitor_id = request.cookies.get("visitor_id")
+    if not visitor_id:
+        visitor_id = track_visitor('user')
+
+    journey_date = request.form.get("journey_date", datetime.utcnow().strftime("%Y-%m-%d"))
+    action = request.form.get("action")
+    selected_seats = request.form.get("selected_seats", "")
+    seat_numbers = [int(s) for s in selected_seats.split(",") if s.strip().isdigit()]
+
+    if not seat_numbers:
+        return "No seats selected"
+
+    if action == "lock":
+        for seat_number in seat_numbers:
+            manager.select_seat(bus_id, journey_date, seat_number, visitor_id)
+    elif action == "book":
+        bus = manager.buses.get(bus_id)
+        if not bus:
+            return "Bus not found"
+        for seat_number in seat_numbers:
+            seats = bus.get_seats_for_date(journey_date)
+            seat = seats[seat_number - 1]
+            if seat.status == "AVAILABLE":
+                manager.select_seat(bus_id, journey_date, seat_number, visitor_id)
+            if seat.locked_by == visitor_id:
+                booking_id = f"BK-{seat_number}-{int(time.time())}"
+                manager.book_seat(bus_id, journey_date, seat_number, visitor_id, booking_id)
+    elif action == "cancel":
+        for seat_number in seat_numbers:
+            manager.cancel_booking(bus_id, journey_date, seat_number, visitor_id)
     else:
         return "Invalid booking action"
 
