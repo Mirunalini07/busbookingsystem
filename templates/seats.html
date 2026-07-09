@@ -25,6 +25,16 @@
         </form>
     </div>
     <div class="seat-grid">
+        <div class="driver-column">
+            <div class="driver-cabin">
+                <div class="steering-wheel">🎡</div>
+                <div class="driver-text">DRIVER</div>
+            </div>
+            <div class="bus-door">
+                <div class="door-handle">🚪</div>
+                <div class="door-text">ENTRANCE</div>
+            </div>
+        </div>
         {% for row in seat_rows %}
         <div class="seat-row">
             {% for seat in row %}

@@ -186,11 +186,105 @@ body{
 }
 
 .seat-grid {
-    width:min(1200px, 95%);
-    margin:20px auto 40px;
-    display:flex;
-    flex-direction:column;
-    gap:18px;
+    width: min(1200px, 95%);
+    margin: 20px auto 40px;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 18px;
+    overflow-x: auto;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 24px;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+.seat-grid::-webkit-scrollbar {
+    height: 8px;
+}
+
+.seat-grid::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.seat-grid::-webkit-scrollbar-thumb {
+    background: rgba(0, 198, 255, 0.3);
+    border-radius: 4px;
+}
+
+.seat-grid::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 198, 255, 0.5);
+}
+
+.driver-column {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    width: 90px;
+    border-right: 3px solid rgba(255, 255, 255, 0.15);
+    padding-right: 18px;
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+
+.driver-cabin {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 90px;
+    height: 98px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px 18px 18px 10px;
+    color: #ffbd59;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+}
+
+.driver-cabin .steering-wheel {
+    font-size: 28px;
+    animation: wiggle 3s ease-in-out infinite;
+}
+
+@keyframes wiggle {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(15deg); }
+}
+
+.driver-cabin .driver-text {
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin-top: 4px;
+}
+
+.bus-door {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 90px;
+    height: 98px;
+    border: 2px dashed rgba(0, 198, 255, 0.35);
+    border-radius: 12px;
+    color: #00c6ff;
+    background: rgba(0, 198, 255, 0.05);
+    box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+}
+
+.bus-door .door-handle {
+    font-size: 24px;
+}
+
+.bus-door .door-text {
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
 }
 
 .bus-aisle {
@@ -202,32 +296,54 @@ body{
 }
 
 .seat-row {
-    display:flex;
-    justify-content:center;
-    gap:18px;
-    flex-wrap:wrap;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 18px;
+    flex-shrink: 0;
 }
 
 .seat-card {
-    width:86px;
-    min-height:98px;
-    background:rgba(255,255,255,.06);
-    border:2px solid rgba(255,255,255,.15);
-    border-radius:18px 18px 10px 10px;
-    padding:14px 10px;
-    text-align:center;
-    box-shadow:0 8px 18px rgba(0,0,0,.18);
-    position:relative;
-    transition:transform .2s ease, border-color .2s ease, background .2s ease;
-    cursor:pointer;
+    width: 110px;
+    min-height: 98px;
+    background: rgba(255, 255, 255, .06);
+    border: 2px solid rgba(255, 255, 255, .15);
+    border-radius: 10px 18px 18px 10px;
+    padding: 14px 22px 14px 10px;
+    text-align: center;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, .18);
+    position: relative;
+    transition: transform .2s ease, border-color .2s ease, background .2s ease;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.seat-card::after {
+    content: '';
+    position: absolute;
+    right: 6px;
+    top: 10%;
+    width: 6px;
+    height: 80%;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    transition: background .2s ease;
+}
+
+.seat-card.selected::after {
+    background: rgba(0, 216, 119, 0.5);
 }
 
 .seat-row .bus-aisle-break {
-    width:40px;
+    height: 40px;
+    width: 100%;
 }
 
 .seat-card:hover {
-    transform:translateY(-2px);
+    transform: scale(1.05);
 }
 
 .seat-card.selected {
@@ -275,18 +391,29 @@ body{
     font-size:18px;
     font-weight:800;
     margin-bottom:8px;
+    color: white;
 }
 
 .seat-card .seat-status {
     margin-bottom:10px;
     font-size:13px;
-    color:#071928;
+    color:#a0c0ff;
+    font-weight: 600;
 }
 
 .seat-card .seat-note {
     font-size:12px;
-    color:#071928;
+    color:#e0f0ff;
     margin-bottom:10px;
+}
+
+.seat-card[data-seat-status="LOCKED"] .seat-number,
+.seat-card[data-seat-status="BOOKED"] .seat-number,
+.seat-card[data-seat-status="LOCKED"] .seat-status,
+.seat-card[data-seat-status="BOOKED"] .seat-status,
+.seat-card[data-seat-status="LOCKED"] .seat-note,
+.seat-card[data-seat-status="BOOKED"] .seat-note {
+    color:#071928;
 }
 
 .seat-actions {
