@@ -217,7 +217,33 @@ for bus in bus_data:
 
 @app.route("/")
 def home():
-    visitor_id = track_visitor('user')
+    visitor_id = request.cookies.get("visitor_id")
+    if not visitor_id:
+        visitor_id = track_visitor('user')
+
+    user_role = request.cookies.get("user_role")
+    if user_role in ['admin', 'user']:
+        visitor_count, device_counts = get_visitor_stats()
+        resource_stats = get_current_resource_metrics()
+        response = make_response(render_template(
+            "dashboard.html",
+            visitor_count=visitor_count,
+            device_counts=device_counts,
+            total_buses=len(manager.buses),
+            cpu_idle_time=resource_stats["cpu_idle_time"],
+            max_cpu_usage=resource_stats["max_cpu_usage"],
+            max_physical_memory=resource_stats["max_physical_memory"],
+            max_virtual_memory=resource_stats["max_virtual_memory"],
+            buses=manager.buses.values(),
+            journey_date="2026-07-01",
+            user_role=user_role,
+            merge_message=None,
+            merge_alert_buses=manager.merge_alert_buses,
+            can_undo_merge=manager.can_undo_merge() if hasattr(manager, 'can_undo_merge') else False
+        ))
+        response.set_cookie("visitor_id", visitor_id, httponly=True, samesite="Lax")
+        return response
+
     response = make_response(render_template("login.html"))
     response.set_cookie("visitor_id", visitor_id, httponly=True, samesite="Lax")
     return response
