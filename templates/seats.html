@@ -16,6 +16,8 @@
         </div>
     </div>
 
+    {% include '_passenger_notifications.html' %}
+
     <div class="section-title">Seat Selection</div>
     <div class="journey-date-picker">
         <form id="dateForm" method="GET" action="{{ url_for('seats', bus_id=bus.bus_id) }}">

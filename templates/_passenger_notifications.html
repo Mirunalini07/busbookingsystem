@@ -1,0 +1,19 @@
+{% if user_role == 'user' and passenger_notifications %}
+<div class="passenger-notifications">
+    <div class="passenger-notifications-header">
+        <span class="passenger-notifications-title">Seat Update</span>
+        <form method="POST" action="/dismiss-notifications" class="inline-form">
+            <input type="hidden" name="next" value="{{ request.path }}{% if request.query_string %}?{{ request.query_string }}{% endif %}">
+            <button type="submit" class="dismiss-notifications-btn">Dismiss</button>
+        </form>
+    </div>
+    {% for notification in passenger_notifications %}
+    <div class="passenger-notification-item">
+        <p>{{ notification.message }}</p>
+        <div class="passenger-notification-meta">
+            Bus {{ notification.new_bus }} · Seat {{ notification.new_seat }} · {{ notification.journey_date }}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

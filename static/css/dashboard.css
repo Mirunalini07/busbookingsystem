@@ -122,6 +122,69 @@ body{
     font-size:0.95rem;
 }
 
+.passenger-notifications{
+    width:min(1200px, 95%);
+    margin:20px auto 0;
+    padding:18px 22px;
+    background:rgba(255, 189, 89, 0.15);
+    border:1px solid rgba(255, 189, 89, 0.45);
+    border-radius:16px;
+    box-shadow:0 8px 24px rgba(0,0,0,.18);
+}
+
+.passenger-notifications-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin-bottom:12px;
+}
+
+.passenger-notifications-title{
+    font-size:1rem;
+    font-weight:700;
+    color:#ffbd59;
+}
+
+.dismiss-notifications-btn{
+    padding:8px 14px;
+    border:none;
+    border-radius:10px;
+    background:rgba(255,255,255,.12);
+    color:#fff;
+    font-size:0.85rem;
+    font-weight:700;
+    cursor:pointer;
+    transition:background .2s ease, transform .2s ease;
+}
+
+.dismiss-notifications-btn:hover{
+    background:rgba(255,255,255,.22);
+    transform:translateY(-1px);
+}
+
+.passenger-notification-item{
+    padding:12px 0;
+    border-top:1px solid rgba(255,255,255,.12);
+}
+
+.passenger-notification-item:first-of-type{
+    border-top:none;
+    padding-top:0;
+}
+
+.passenger-notification-item p{
+    color:#fff8e8;
+    font-size:0.95rem;
+    line-height:1.5;
+    margin-bottom:6px;
+}
+
+.passenger-notification-meta{
+    color:#ffd98e;
+    font-size:0.85rem;
+}
+
 .search-section{
     width:min(1200px, 95%);
     margin:24px auto 0;

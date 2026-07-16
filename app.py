@@ -255,6 +255,10 @@ def get_dashboard_context(user_role, visitor_id=None, search_source=None, search
         "sources": sources,
         "destinations": destinations,
         "buses_per_route": BUSES_PER_ROUTE,
+        "passenger_notifications": (
+            manager.get_notifications_for_passenger(visitor_id)
+            if user_role == "user" and visitor_id else []
+        ),
     }
 
 # -----------------------------
@@ -352,6 +356,10 @@ def seats(bus_id):
         journey_date=journey_date,
         today_date=today_date,
         user_role=user_role,
+        passenger_notifications=(
+            manager.get_notifications_for_passenger(visitor_id)
+            if user_role == "user" else []
+        ),
     ))
     response.set_cookie("visitor_id", visitor_id, httponly=True, samesite="Lax")
     return response
@@ -418,6 +426,17 @@ def seat_action_multi(bus_id):
     response = redirect(url_for("seats", bus_id=bus_id, date=journey_date))
     response.set_cookie("visitor_id", visitor_id, httponly=True, samesite="Lax")
     return response
+
+
+@app.route("/dismiss-notifications", methods=["POST"])
+def dismiss_notifications():
+    visitor_id = request.cookies.get("visitor_id")
+    if not visitor_id:
+        return redirect(url_for("home"))
+
+    manager.clear_notifications_for_passenger(visitor_id)
+    next_url = request.form.get("next", "/")
+    return redirect(next_url)
 
 
 @app.route("/merge-buses", methods=["POST"])

@@ -18,6 +18,7 @@ class BookingManager:
         self.last_merged_state = None
         self.merge_alert_buses = set()
         self.last_merge_allocations = None
+        self.passenger_notifications = {}
 
     def add_bus(self, bus):
         self.buses[bus.bus_id] = bus
@@ -188,6 +189,7 @@ class BookingManager:
         self.last_merged_state = None
         self.merge_alert_buses = set()
         self.last_merge_allocations = None
+        self.passenger_notifications = {}
         self.logger.log("Merge undone, previous bus state restored")
         return "Merge undone successfully"
 
@@ -242,6 +244,36 @@ class BookingManager:
         sources = sorted({bus.source for bus in self.buses.values()})
         destinations = sorted({bus.destination for bus in self.buses.values()})
         return sources, destinations
+
+    def _add_passenger_notification(self, passenger, journey_date, source, destination,
+                                    original_bus, original_seat, new_bus, new_seat):
+        if original_seat == new_seat:
+            return
+
+        message = (
+            f"Your seat was changed due to a bus merge on {journey_date} "
+            f"({source} → {destination}). You were moved from Bus {original_bus} "
+            f"Seat {original_seat} to Bus {new_bus} Seat {new_seat}."
+        )
+
+        notification = {
+            "message": message,
+            "journey_date": journey_date,
+            "source": source,
+            "destination": destination,
+            "original_bus": original_bus,
+            "original_seat": original_seat,
+            "new_bus": new_bus,
+            "new_seat": new_seat,
+        }
+        self.passenger_notifications.setdefault(passenger, []).append(notification)
+        self.logger.log(f"Notified passenger {passenger}: {message}")
+
+    def get_notifications_for_passenger(self, passenger):
+        return list(self.passenger_notifications.get(passenger, []))
+
+    def clear_notifications_for_passenger(self, passenger):
+        self.passenger_notifications.pop(passenger, None)
 
     def get_bookings_for_bus(self, bus_id, journey_date):
         bus = self.buses.get(bus_id)
@@ -337,6 +369,10 @@ class BookingManager:
                                     "new_seat": new_seat_num,
                                     "status": f"Reassigned due to collision (was Seat {original_seat})"
                                 })
+                                self._add_passenger_notification(
+                                    passenger, journey_date, source, destination,
+                                    src_id, original_seat, dest_bus_id, new_seat_num
+                                )
                                 self.logger.log(f"Passenger {passenger} reassigned from Seat {original_seat} to Seat {new_seat_num} in {dest_bus_id}")
                             else:
                                 self.logger.log(f"Seat collision: No available seats in {dest_bus_id} for passenger {passenger}")
