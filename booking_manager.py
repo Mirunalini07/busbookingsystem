@@ -17,6 +17,7 @@ class BookingManager:
         self.visitor_count = 0
         self.last_merged_state = None
         self.merge_alert_buses = set()
+        self.last_merge_allocations = None
 
     def add_bus(self, bus):
         self.buses[bus.bus_id] = bus
@@ -186,7 +187,166 @@ class BookingManager:
         self.buses = self.last_merged_state
         self.last_merged_state = None
         self.merge_alert_buses = set()
+        self.last_merge_allocations = None
         self.logger.log("Merge undone, previous bus state restored")
         return "Merge undone successfully"
+
+    def get_low_load_buses_for_route_and_date(self, source, destination, journey_date):
+        low_buses = []
+        for bus in self.buses.values():
+            if bus.source == source and bus.destination == destination:
+                seats = bus.get_seats_for_date(journey_date)
+                total = len(seats)
+                booked = sum(1 for seat in seats if seat.status == "BOOKED")
+                if total > 0:
+                    load = booked / total
+                    if load < 0.2:
+                        low_buses.append(bus.bus_id)
+        return low_buses
+
+    def find_next_available_seat(self, dest_seats, seat_num):
+        idx = seat_num - 1
+        row_start = (idx // 4) * 4
+        row_indices = [row_start, row_start + 1, row_start + 2, row_start + 3]
+        
+        # 1. Immediate neighbor in the same row
+        neighbor_idx = idx ^ 1
+        if neighbor_idx in row_indices and dest_seats[neighbor_idx].status == "AVAILABLE":
+            return neighbor_idx
+            
+        # 2. Other seats in the same row
+        for r_idx in row_indices:
+            if r_idx != idx and dest_seats[r_idx].status == "AVAILABLE":
+                return r_idx
+                
+        # 3. Row behind / front
+        for offset in [4, -4, 8, -8]:
+            target_idx = idx + offset
+            if 0 <= target_idx < len(dest_seats) and dest_seats[target_idx].status == "AVAILABLE":
+                return target_idx
+                
+        # 4. Any other seat in the bus
+        for i in range(len(dest_seats)):
+            if dest_seats[i].status == "AVAILABLE":
+                return i
+                
+        return None
+
+    def search_buses(self, source, destination):
+        return [
+            bus for bus in self.buses.values()
+            if bus.source == source and bus.destination == destination
+        ]
+
+    def get_all_places(self):
+        sources = sorted({bus.source for bus in self.buses.values()})
+        destinations = sorted({bus.destination for bus in self.buses.values()})
+        return sources, destinations
+
+    def get_bookings_for_bus(self, bus_id, journey_date):
+        bus = self.buses.get(bus_id)
+        if not bus:
+            return []
+        seats = bus.get_seats_for_date(journey_date)
+        bookings = []
+        for seat in seats:
+            if seat.status == "BOOKED" and seat.booked_by:
+                bookings.append({
+                    "seat_number": seat.seat_number,
+                    "passenger": seat.booked_by,
+                    "booking_id": seat.booking_id,
+                })
+        return sorted(bookings, key=lambda b: b["seat_number"])
+
+    def merge_buses_for_route_and_date(self, source, destination, journey_date):
+        low_buses = self.get_low_load_buses_for_route_and_date(source, destination, journey_date)
+
+        if len(low_buses) < 2:
+            return "Not enough low-load buses to merge on this route for this date"
+
+        with self.lock:
+            # Save the current state of buses for undoing
+            self.last_merged_state = copy.deepcopy(self.buses)
+            
+            # Select the destination bus (e.g. the first one)
+            dest_bus_id = low_buses[0]
+            dest_bus = self.buses[dest_bus_id]
+            dest_seats = dest_bus.get_seats_for_date(journey_date)
+            
+            self.last_merge_allocations = []
+            
+            # Keep track of passengers already in the destination bus
+            for seat in dest_seats:
+                if seat.status == "BOOKED":
+                    self.last_merge_allocations.append({
+                        "passenger": seat.booked_by,
+                        "original_bus": dest_bus_id,
+                        "original_seat": seat.seat_number,
+                        "new_bus": dest_bus_id,
+                        "new_seat": seat.seat_number,
+                        "status": "Kept original seat"
+                    })
+            
+            source_bus_ids = low_buses[1:]
+            self.merge_alert_buses = set(low_buses)
+            
+            self.logger.log(f"Bus alteration started for {source} -> {destination} on {journey_date}")
+            
+            for src_id in source_bus_ids:
+                src_bus = self.buses[src_id]
+                src_seats = src_bus.get_seats_for_date(journey_date)
+                
+                for seat in src_seats:
+                    if seat.status == "BOOKED":
+                        passenger = seat.booked_by
+                        original_seat = seat.seat_number
+                        
+                        # Check dest seat status
+                        dest_seat = dest_seats[original_seat - 1]
+                        if dest_seat.status == "AVAILABLE":
+                            # Book in dest_bus
+                            dest_seat.status = "BOOKED"
+                            dest_seat.booking_id = seat.booking_id
+                            dest_seat.booked_by = passenger
+                            dest_seat.locked_by = None
+                            
+                            self.last_merge_allocations.append({
+                                "passenger": passenger,
+                                "original_bus": src_id,
+                                "original_seat": original_seat,
+                                "new_bus": dest_bus_id,
+                                "new_seat": original_seat,
+                                "status": "Moved to same seat in merged bus"
+                            })
+                            self.logger.log(f"Passenger {passenger} moved to Seat {original_seat} in {dest_bus_id}")
+                        else:
+                            # Collision! Find next available seat
+                            new_seat_idx = self.find_next_available_seat(dest_seats, original_seat)
+                            if new_seat_idx is not None:
+                                new_seat_num = new_seat_idx + 1
+                                dest_seats[new_seat_idx].status = "BOOKED"
+                                dest_seats[new_seat_idx].booking_id = seat.booking_id
+                                dest_seats[new_seat_idx].booked_by = passenger
+                                dest_seats[new_seat_idx].locked_by = None
+                                
+                                self.last_merge_allocations.append({
+                                    "passenger": passenger,
+                                    "original_bus": src_id,
+                                    "original_seat": original_seat,
+                                    "new_bus": dest_bus_id,
+                                    "new_seat": new_seat_num,
+                                    "status": f"Reassigned due to collision (was Seat {original_seat})"
+                                })
+                                self.logger.log(f"Passenger {passenger} reassigned from Seat {original_seat} to Seat {new_seat_num} in {dest_bus_id}")
+                            else:
+                                self.logger.log(f"Seat collision: No available seats in {dest_bus_id} for passenger {passenger}")
+                                return f"Merge failed: Not enough seats in {dest_bus_id}"
+                
+                # Remove the merged source bus from system
+                self.buses.pop(src_id)
+                self.logger.log(f"Bus {src_id} merged into {dest_bus_id}")
+
+            self.merge_alert_buses = set()
+            return f"Merged low-load buses into {dest_bus_id}"
     
     

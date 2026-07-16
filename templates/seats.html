@@ -51,6 +51,8 @@
                     <div class="seat-note" data-remaining="{{ seat.locked_remaining }}">Your hold (<span class="remaining">{{ seat.locked_remaining // 60 }}:{{ '%02d' % (seat.locked_remaining % 60) }}</span>)</div>
                 {% elif seat.status == 'BOOKED' and seat.booked_by_current %}
                     <div class="seat-note">Booked by you</div>
+                {% elif seat.status == 'BOOKED' and user_role == 'admin' and seat.booked_by %}
+                    <div class="seat-note">{{ seat.booked_by }}</div>
                 {% elif seat.status == 'BOOKED' %}
                     <div class="seat-note">Booked</div>
                 {% endif %}

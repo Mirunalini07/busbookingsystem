@@ -152,7 +152,7 @@ def get_current_resource_metrics():
     }
 
 
-def get_seat_info(bus, journey_date, visitor_id):
+def get_seat_info(bus, journey_date, visitor_id, user_role="user"):
     seats = bus.get_seats_for_date(journey_date)
     seat_infos = []
 
@@ -163,13 +163,16 @@ def get_seat_info(bus, journey_date, visitor_id):
             if seat.status == "LOCKED" and seat.lock_time:
                 elapsed = time.time() - seat.lock_time
                 locked_remaining = max(0, int(300 - elapsed))
-            seat_infos.append({
+            info = {
                 "seat_number": seat.seat_number,
                 "status": seat.status,
                 "locked_by_current": seat.status == "LOCKED" and seat.locked_by == visitor_id,
                 "booked_by_current": seat.status == "BOOKED" and getattr(seat, "booked_by", None) == visitor_id,
                 "locked_remaining": locked_remaining,
-            })
+            }
+            if user_role == "admin" and seat.status == "BOOKED":
+                info["booked_by"] = getattr(seat, "booked_by", None)
+            seat_infos.append(info)
 
     return seat_infos
 
@@ -178,39 +181,81 @@ def get_seat_info(bus, journey_date, visitor_id):
 init_db()
 
 # -----------------------------
-# Create Initial Buses
+# Create Initial Buses (10 per route)
 # -----------------------------
 
-bus_data = [
-
-("BUS001","Chennai","Coimbatore","06:00 AM","01:00 PM",650),
-("BUS002","Chennai","Madurai","07:00 AM","03:00 PM",700),
-("BUS003","Chennai","Salem","08:00 AM","01:30 PM",450),
-("BUS004","Chennai","Trichy","09:00 AM","03:00 PM",550),
-("BUS005","Chennai","Erode","10:00 AM","05:00 PM",620),
-("BUS006","Chennai","Vellore","06:30 AM","09:30 AM",300),
-("BUS007","Chennai","Tirunelveli","05:30 AM","03:30 PM",900),
-("BUS008","Chennai","Karur","07:30 AM","02:00 PM",500),
-("BUS009","Chennai","Kanyakumari","04:30 AM","05:30 PM",1200),
-("BUS010","Chennai","Thanjavur","09:30 AM","04:00 PM",600)
-
+ROUTE_CONFIG = [
+    ("CBE", "Chennai", "Coimbatore", 650, "06:00 AM", "01:00 PM"),
+    ("MDU", "Chennai", "Madurai", 700, "07:00 AM", "03:00 PM"),
+    ("SLM", "Chennai", "Salem", 450, "08:00 AM", "01:30 PM"),
+    ("TRY", "Chennai", "Trichy", 550, "09:00 AM", "03:00 PM"),
+    ("ERD", "Chennai", "Erode", 620, "10:00 AM", "05:00 PM"),
+    ("VLR", "Chennai", "Vellore", 300, "06:30 AM", "09:30 AM"),
+    ("TNV", "Chennai", "Tirunelveli", 900, "05:30 AM", "03:30 PM"),
+    ("KRR", "Chennai", "Karur", 500, "07:30 AM", "02:00 PM"),
+    ("KKM", "Chennai", "Kanyakumari", 1200, "04:30 AM", "05:30 PM"),
+    ("TJV", "Chennai", "Thanjavur", 600, "09:30 AM", "04:00 PM"),
 ]
 
-for bus in bus_data:
+DEPARTURE_OFFSETS = ["00", "30", "00", "30", "00", "30", "00", "30", "00", "30"]
+DEPARTURE_HOURS = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
-    manager.add_bus(
+for prefix, source, destination, fare, base_dep, base_arr in ROUTE_CONFIG:
+    for i in range(10):
+        bus_id = f"{prefix}{i + 1:02d}"
+        hour = DEPARTURE_HOURS[i]
+        minute = DEPARTURE_OFFSETS[i]
+        period = "AM" if hour < 12 else "PM"
+        display_hour = hour if hour <= 12 else hour - 12
+        if display_hour == 0:
+            display_hour = 12
+        departure_time = f"{display_hour}:{minute} {period}"
+        arrival_hour = (hour + 6) % 24
+        arrival_period = "AM" if arrival_hour < 12 else "PM"
+        arrival_display = arrival_hour if arrival_hour <= 12 else arrival_hour - 12
+        if arrival_display == 0:
+            arrival_display = 12
+        arrival_time = f"{arrival_display}:{minute} {arrival_period}"
+        manager.add_bus(Bus(bus_id, source, destination, departure_time, arrival_time, fare, 40))
 
-        Bus(
-            bus[0],
-            bus[1],
-            bus[2],
-            bus[3],
-            bus[4],
-            bus[5],
-            40
-        )
+BUSES_PER_ROUTE = 10
 
-    )
+
+def get_dashboard_context(user_role, visitor_id=None, search_source=None, search_destination=None,
+                          journey_date=None, merge_message=None):
+    visitor_count, device_counts = get_visitor_stats()
+    resource_stats = get_current_resource_metrics()
+    sources, destinations = manager.get_all_places()
+
+    searched = bool(search_source and search_destination and journey_date)
+    if searched:
+        buses = manager.search_buses(search_source, search_destination)
+        buses = sorted(buses, key=lambda b: b.bus_id)
+    else:
+        buses = []
+
+    return {
+        "visitor_count": visitor_count,
+        "device_counts": device_counts,
+        "total_buses": len(manager.buses),
+        "cpu_idle_time": resource_stats["cpu_idle_time"],
+        "max_cpu_usage": resource_stats["max_cpu_usage"],
+        "max_physical_memory": resource_stats["max_physical_memory"],
+        "max_virtual_memory": resource_stats["max_virtual_memory"],
+        "buses": buses,
+        "journey_date": journey_date or datetime.utcnow().strftime("%Y-%m-%d"),
+        "user_role": user_role,
+        "visitor_name": visitor_id if user_role == "user" else None,
+        "merge_message": merge_message,
+        "merge_alert_buses": manager.merge_alert_buses,
+        "can_undo_merge": manager.can_undo_merge(),
+        "search_source": search_source,
+        "search_destination": search_destination,
+        "searched": searched,
+        "sources": sources,
+        "destinations": destinations,
+        "buses_per_route": BUSES_PER_ROUTE,
+    }
 
 # -----------------------------
 # Routes
@@ -224,25 +269,13 @@ def home():
 
     user_role = request.cookies.get("user_role")
     if user_role in ['admin', 'user']:
-        visitor_count, device_counts = get_visitor_stats()
-        resource_stats = get_current_resource_metrics()
-        response = make_response(render_template(
-            "dashboard.html",
-            visitor_count=visitor_count,
-            device_counts=device_counts,
-            total_buses=len(manager.buses),
-            cpu_idle_time=resource_stats["cpu_idle_time"],
-            max_cpu_usage=resource_stats["max_cpu_usage"],
-            max_physical_memory=resource_stats["max_physical_memory"],
-            max_virtual_memory=resource_stats["max_virtual_memory"],
-            buses=manager.buses.values(),
-            journey_date="2026-07-01",
-            user_role=user_role,
-            visitor_name=visitor_id if user_role == 'user' else None,
-            merge_message=None,
-            merge_alert_buses=manager.merge_alert_buses,
-            can_undo_merge=manager.can_undo_merge() if hasattr(manager, 'can_undo_merge') else False
-        ))
+        search_source = request.args.get("source")
+        search_destination = request.args.get("destination")
+        journey_date = request.args.get("date")
+        context = get_dashboard_context(
+            user_role, visitor_id, search_source, search_destination, journey_date
+        )
+        response = make_response(render_template("dashboard.html", **context))
         response.set_cookie("visitor_id", visitor_id, httponly=True, samesite="Lax")
         return response
 
@@ -273,42 +306,8 @@ def login():
     visitor_id = track_visitor(role, custom_visitor_id=username)
     manager.logger.log(f"{role.capitalize()} '{username}' logged in successfully")
 
-    visitor_count, device_counts = get_visitor_stats()
-    resource_stats = get_current_resource_metrics()
-
-    response = make_response(render_template(
-
-        "dashboard.html",
-
-        visitor_count=visitor_count,
-
-        device_counts=device_counts,
-
-        total_buses=len(manager.buses),
-
-        cpu_idle_time=resource_stats["cpu_idle_time"],
-
-        max_cpu_usage=resource_stats["max_cpu_usage"],
-
-        max_physical_memory=resource_stats["max_physical_memory"],
-
-        max_virtual_memory=resource_stats["max_virtual_memory"],
-
-        buses=manager.buses.values(),
- 
-        journey_date="2026-07-01",
-
-        user_role=role,
-
-        visitor_name=visitor_id if role == 'user' else None,
-
-        merge_message=None,
-
-        merge_alert_buses=manager.merge_alert_buses,
-
-        can_undo_merge=manager.can_undo_merge() if hasattr(manager, 'can_undo_merge') else False
-
-    ))
+    context = get_dashboard_context(role, visitor_id)
+    response = make_response(render_template("dashboard.html", **context))
     response.set_cookie("visitor_id", visitor_id, httponly=True, samesite="Lax")
     response.set_cookie("user_role", role, httponly=True, samesite="Lax")
     return response
@@ -341,7 +340,8 @@ def seats(bus_id):
 
     journey_date = request.args.get("date") or datetime.utcnow().strftime("%Y-%m-%d")
     today_date = datetime.utcnow().strftime("%Y-%m-%d")
-    seat_infos = get_seat_info(bus, journey_date, visitor_id)
+    user_role = request.cookies.get("user_role", "user")
+    seat_infos = get_seat_info(bus, journey_date, visitor_id, user_role)
     seat_rows = [seat_infos[i:i+4] for i in range(0, len(seat_infos), 4)]
 
     response = make_response(render_template(
@@ -350,7 +350,8 @@ def seats(bus_id):
         seat_rows=seat_rows,
         visitor_id=visitor_id,
         journey_date=journey_date,
-        today_date=today_date
+        today_date=today_date,
+        user_role=user_role,
     ))
     response.set_cookie("visitor_id", visitor_id, httponly=True, samesite="Lax")
     return response
@@ -425,31 +426,26 @@ def merge_buses():
     if user_role != "admin":
         return "Admin access required to merge buses ❌"
 
-    merge_message = manager.merge_buses()
-    merge_alert_buses = set() if merge_message.startswith("Merged into") else manager.merge_alert_buses
+    source = request.form.get("source")
+    destination = request.form.get("destination")
+    journey_date = request.form.get("date")
+
+    if not source or not destination or not journey_date:
+        merge_message = "Please search for a route and date before merging buses"
+    else:
+        merge_message = manager.merge_buses_for_route_and_date(source, destination, journey_date)
+
+    merge_alert_buses = set() if merge_message.startswith("Merged low-load buses into") else manager.merge_alert_buses
     visitor_id = request.cookies.get("visitor_id")
     if not visitor_id:
         visitor_id = track_visitor('admin')
 
-    visitor_count, device_counts = get_visitor_stats()
-    resource_stats = get_current_resource_metrics()
+    context = get_dashboard_context(
+        "admin", visitor_id, source, destination, journey_date, merge_message
+    )
+    context["merge_alert_buses"] = merge_alert_buses
 
-    response = make_response(render_template(
-        "dashboard.html",
-        visitor_count=visitor_count,
-        device_counts=device_counts,
-        total_buses=len(manager.buses),
-        cpu_idle_time=resource_stats["cpu_idle_time"],
-        max_cpu_usage=resource_stats["max_cpu_usage"],
-        max_physical_memory=resource_stats["max_physical_memory"],
-        max_virtual_memory=resource_stats["max_virtual_memory"],
-        buses=manager.buses.values(),
-        journey_date="2026-07-01",
-        user_role="admin",
-        merge_message=merge_message,
-        can_undo_merge=manager.can_undo_merge(),
-        merge_alert_buses=merge_alert_buses
-    ))
+    response = make_response(render_template("dashboard.html", **context))
     response.set_cookie("visitor_id", visitor_id, httponly=True, samesite="Lax")
     response.set_cookie("user_role", "admin", httponly=True, samesite="Lax")
     return response
@@ -460,31 +456,22 @@ def undo_merge():
     if user_role != "admin":
         return "Admin access required to undo merge ❌"
 
+    source = request.form.get("source")
+    destination = request.form.get("destination")
+    journey_date = request.form.get("date")
+
     undo_message = manager.undo_merge()
     merge_alert_buses = set() if undo_message.startswith("Merge undone") else manager.merge_alert_buses
     visitor_id = request.cookies.get("visitor_id")
     if not visitor_id:
         visitor_id = track_visitor('admin')
 
-    visitor_count, device_counts = get_visitor_stats()
-    resource_stats = get_current_resource_metrics()
+    context = get_dashboard_context(
+        "admin", visitor_id, source, destination, journey_date, undo_message
+    )
+    context["merge_alert_buses"] = merge_alert_buses
 
-    response = make_response(render_template(
-        "dashboard.html",
-        visitor_count=visitor_count,
-        device_counts=device_counts,
-        total_buses=len(manager.buses),
-        cpu_idle_time=resource_stats["cpu_idle_time"],
-        max_cpu_usage=resource_stats["max_cpu_usage"],
-        max_physical_memory=resource_stats["max_physical_memory"],
-        max_virtual_memory=resource_stats["max_virtual_memory"],
-        buses=manager.buses.values(),
-        journey_date="2026-07-01",
-        user_role="admin",
-        merge_message=undo_message,
-        can_undo_merge=manager.can_undo_merge(),
-        merge_alert_buses=merge_alert_buses
-    ))
+    response = make_response(render_template("dashboard.html", **context))
     response.set_cookie("visitor_id", visitor_id, httponly=True, samesite="Lax")
     response.set_cookie("user_role", "admin", httponly=True, samesite="Lax")
     return response
