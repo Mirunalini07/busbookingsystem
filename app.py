@@ -395,19 +395,33 @@ def seat_action(bus_id, seat_number):
 
     journey_date = request.form.get("journey_date", datetime.utcnow().strftime("%Y-%m-%d"))
     action = request.form.get("action")
+    
+    result = ""
     if action == "lock":
-        manager.select_seat(bus_id, journey_date, seat_number, visitor_id)
+        result = manager.select_seat(bus_id, journey_date, seat_number, visitor_id)
     elif action == "book":
         booking_id = f"BK-{seat_number}-{int(time.time())}"
-        manager.book_seat(bus_id, journey_date, seat_number, visitor_id, booking_id)
+        result = manager.book_seat(bus_id, journey_date, seat_number, visitor_id, booking_id)
     elif action == "cancel":
-        manager.cancel_booking(bus_id, journey_date, seat_number, visitor_id)
+        result = manager.cancel_booking(bus_id, journey_date, seat_number, visitor_id)
     else:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accept_mimetypes.accept_json:
+            return {"success": False, "message": "Invalid booking action"}, 400
         return "Invalid booking action"
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accept_mimetypes.accept_json:
+        success = "successfully" in result or "released" in result or "cancelled" in result
+        return {
+            "success": success,
+            "message": result,
+            "seat_number": seat_number,
+            "status": action.upper() if success else None
+        }
 
     response = redirect(url_for("seats", bus_id=bus_id, date=journey_date))
     response.set_cookie("visitor_id", visitor_id, httponly=True, samesite="Lax")
     return response
+
 
 
 @app.route("/seat-action/<bus_id>", methods=["POST"])

@@ -785,3 +785,55 @@ button:hover{
         width:100%;
     }
 }
+
+/* Premium Dropdown Styles */
+.search-field select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 14px center !important;
+    background-size: 16px !important;
+    padding-right: 40px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    cursor: pointer !important;
+}
+
+.search-field select:hover {
+    background-color: rgba(255, 255, 255, 0.18) !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+    transform: translateY(-1px) !important;
+}
+
+.search-field select:focus {
+    border-color: #00c6ff !important;
+    box-shadow: 0 0 12px rgba(0, 198, 255, 0.35) !important;
+    background-color: rgba(255, 255, 255, 0.20) !important;
+}
+
+/* Locked Seat Styling (Solid Yellow color) */
+.seat-card.seat-locked:not(.selected) {
+    background: #f1c40f !important;
+    border-color: #f39c12 !important;
+    color: #071928 !important;
+    cursor: not-allowed !important;
+}
+.seat-card.seat-locked:not(.selected) .seat-number,
+.seat-card.seat-locked:not(.selected) .seat-status,
+.seat-card.seat-locked:not(.selected) .seat-note {
+    color: #071928 !important;
+}
+
+/* User Selection Hold State Styling (Vibrant Green) */
+.seat-card.selected,
+.seat-card.seat-locked.selected {
+    background: rgba(0, 216, 119, 0.25) !important;
+    border-color: #00d877 !important;
+    color: #fff !important;
+}
+.seat-card.selected .seat-number,
+.seat-card.selected .seat-status,
+.seat-card.selected .seat-note {
+    color: #fff !important;
+}

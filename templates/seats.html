@@ -40,8 +40,9 @@
         {% for row in seat_rows %}
         <div class="seat-row">
             {% for seat in row %}
-            <div class="seat-card seat-{{ seat.status|lower }} {% if seat.status == 'AVAILABLE' %}available{% endif %}"
+            <div class="seat-card seat-{{ seat.status|lower }} {% if seat.status == 'AVAILABLE' %}available{% endif %} {% if seat.status == 'LOCKED' and seat.locked_by_current %}selected{% endif %}"
                 data-seat-number="{{ seat.seat_number }}"
+
                 data-seat-status="{{ seat.status }}"
                 data-locked-by-current="{{ 'true' if seat.status == 'LOCKED' and seat.locked_by_current else 'false' }}"
                 data-booked-by-current="{{ 'true' if seat.status == 'BOOKED' and seat.booked_by_current else 'false' }}">
@@ -110,94 +111,247 @@
             const selectedSeatsInput = document.getElementById('selectedSeatsInput');
             let selectedSeats = [];
 
-            seatCards.forEach((card) => {
-                const status = card.dataset.seatStatus;
-                if (status === 'BOOKED' || status === 'LOCKED') {
-                    card.classList.remove('available');
-                }
-                card.addEventListener('click', () => {
-                    if (status === 'BOOKED' && card.dataset.bookedByCurrent !== 'true') return;
-                    if (status === 'LOCKED' && card.dataset.lockedByCurrent !== 'true') return;
-
-                    const seatNumber = card.dataset.seatNumber;
-                    const isSelected = card.classList.toggle('selected');
-
-                    if (isSelected) {
-                        selectedSeats.push(seatNumber);
-                    } else {
-                        selectedSeats = selectedSeats.filter((num) => num !== seatNumber);
-                    }
-
-                    selectedSeat.textContent = selectedSeats.length > 0 ? selectedSeats.join(', ') : 'None';
-                    selectedSeatsInput.value = selectedSeats.join(',');
-                    actions.classList.toggle('visible', selectedSeats.length > 0);
-
-                    const journeyDate = '{{ journey_date }}';
-                    const busId = '{{ bus.bus_id }}';
-
-                    // Check if any selected seat is booked by current user
-                    const hasBookedSeats = selectedSeats.some((seatNum) => {
-                        const card = Array.from(seatCards).find((c) => c.dataset.seatNumber === seatNum);
-                        return card && card.dataset.seatStatus === 'BOOKED' && card.dataset.bookedByCurrent === 'true';
-                    });
-
-                    // Check if any selected seat is available or locked by current user
-                    const hasLockableSeats = selectedSeats.some((seatNum) => {
-                        const card = Array.from(seatCards).find((c) => c.dataset.seatNumber === seatNum);
-                        return card && (card.dataset.seatStatus === 'AVAILABLE' || 
-                                       (card.dataset.seatStatus === 'LOCKED' && card.dataset.lockedByCurrent === 'true'));
-                    });
-
-                    // Update button labels and visibility
-                    if (hasBookedSeats) {
-                        bookNowBtn.textContent = 'Cancel Booking';
-                        bookNowBtn.classList.add('cancel-seat');
-                        bookNowBtn.classList.remove('book-now');
-                        bookNowBtn.onclick = () => {
-                            postSeatAction(busId, selectedSeats, 'cancel', journeyDate);
-                        };
-                        cancelSeatBtn.style.display = 'none';
-                    } else if (hasLockableSeats) {
-                        bookNowBtn.textContent = 'Book Now';
-                        bookNowBtn.classList.remove('cancel-seat');
-                        bookNowBtn.classList.add('book-now');
-                        bookNowBtn.onclick = () => {
-                            postSeatAction(busId, selectedSeats, 'book', journeyDate);
-                        };
-                        cancelSeatBtn.style.display = 'inline-block';
-                        cancelSeatBtn.onclick = () => {
-                            postSeatAction(busId, selectedSeats, 'cancel', journeyDate);
-                        };
-                    }
-                });
-            });
-
-            closeActionBtn.addEventListener('click', () => {
-                if (selectedSeats.length === 0) return;
-                seatCards.forEach((c) => c.classList.remove('selected'));
-                selectedSeats = [];
-                selectedSeat.textContent = 'None';
-                selectedSeatsInput.value = '';
-                actions.classList.remove('visible');
-            });
-
-            const notes = document.querySelectorAll('.seat-note[data-remaining]');
-            notes.forEach((note) => {
+            // Helper to start countdown for a card note
+            function startCardCountdown(note) {
                 let remaining = parseInt(note.dataset.remaining, 10);
                 const span = note.querySelector('.remaining');
                 if (isNaN(remaining) || !span) return;
 
-                const interval = setInterval(() => {
+                if (note.intervalId) {
+                    clearInterval(note.intervalId);
+                }
+
+                note.intervalId = setInterval(() => {
                     remaining -= 1;
                     if (remaining <= 0) {
-                        clearInterval(interval);
+                        clearInterval(note.intervalId);
                         note.textContent = 'Lock expired';
+
+                        // Client-side lock expiration handling
+                        const card = note.closest('.seat-card');
+                        if (card && card.classList.contains('selected')) {
+                            card.classList.remove('selected');
+                            card.classList.remove('seat-locked');
+                            card.classList.add('available');
+                            card.dataset.seatStatus = 'AVAILABLE';
+                            card.dataset.lockedByCurrent = 'false';
+                            note.remove();
+
+                            const seatNumber = card.dataset.seatNumber;
+                            selectedSeats = selectedSeats.filter(num => num !== seatNumber);
+                            selectedSeat.textContent = selectedSeats.length > 0 ? selectedSeats.join(', ') : 'None';
+                            selectedSeatsInput.value = selectedSeats.join(',');
+                            actions.classList.toggle('visible', selectedSeats.length > 0);
+                            if (selectedSeats.length > 0) {
+                                updateActionButtons();
+                            }
+                        }
                         return;
                     }
                     span.textContent = formatTime(remaining);
                 }, 1000);
+            }
+
+            function updateActionButtons() {
+                const busId = '{{ bus.bus_id }}';
+                const journeyDate = '{{ journey_date }}';
+
+                const hasBookedSeats = selectedSeats.some((seatNum) => {
+                    const card = Array.from(seatCards).find((c) => c.dataset.seatNumber === seatNum);
+                    return card && card.dataset.seatStatus === 'BOOKED' && card.dataset.bookedByCurrent === 'true';
+                });
+
+                const hasLockableSeats = selectedSeats.some((seatNum) => {
+                    const card = Array.from(seatCards).find((c) => c.dataset.seatNumber === seatNum);
+                    return card && (card.dataset.seatStatus === 'AVAILABLE' || 
+                                   (card.dataset.seatStatus === 'LOCKED' && card.dataset.lockedByCurrent === 'true'));
+                });
+
+                if (hasBookedSeats) {
+                    bookNowBtn.textContent = 'Cancel Booking';
+                    bookNowBtn.className = 'cancel-seat';
+                    bookNowBtn.onclick = () => {
+                        postSeatAction(busId, selectedSeats, 'cancel', journeyDate);
+                    };
+                    cancelSeatBtn.style.display = 'none';
+                } else if (hasLockableSeats) {
+                    bookNowBtn.textContent = 'Book Now';
+                    bookNowBtn.className = 'book-now';
+                    bookNowBtn.onclick = () => {
+                        postSeatAction(busId, selectedSeats, 'book', journeyDate);
+                    };
+                    cancelSeatBtn.style.display = 'inline-block';
+                    cancelSeatBtn.onclick = () => {
+                        postSeatAction(busId, selectedSeats, 'cancel', journeyDate);
+                    };
+                }
+            }
+
+            // Populate selected seats on load (e.g. if already locked by current user)
+            seatCards.forEach((card) => {
+                const status = card.dataset.seatStatus;
+                if (status === 'BOOKED') {
+                    card.classList.remove('available');
+                } else if (status === 'LOCKED') {
+                    card.classList.remove('available');
+                    if (card.classList.contains('selected')) {
+                        selectedSeats.push(card.dataset.seatNumber);
+                    }
+                }
+
+                card.addEventListener('click', () => {
+                    if (card.dataset.seatStatus === 'BOOKED' && card.dataset.bookedByCurrent !== 'true') return;
+                    if (card.dataset.seatStatus === 'LOCKED' && card.dataset.lockedByCurrent !== 'true') return;
+
+                    const seatNumber = card.dataset.seatNumber;
+                    const isCurrentlySelected = card.classList.contains('selected');
+                    const journeyDate = '{{ journey_date }}';
+                    const busId = '{{ bus.bus_id }}';
+
+                    if (!isCurrentlySelected) {
+                        // Request seat lock on the server
+                        const formData = new FormData();
+                        formData.append('journey_date', journeyDate);
+                        formData.append('action', 'lock');
+
+                        fetch(`/seat-action/${busId}/${seatNumber}`, {
+                            method: 'POST',
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                            body: formData
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                card.classList.add('selected');
+                                card.classList.add('seat-locked');
+                                card.dataset.seatStatus = 'LOCKED';
+                                card.dataset.lockedByCurrent = 'true';
+
+                                let noteDiv = card.querySelector('.seat-note');
+                                if (!noteDiv) {
+                                    noteDiv = document.createElement('div');
+                                    noteDiv.className = 'seat-note';
+                                    card.appendChild(noteDiv);
+                                }
+                                noteDiv.dataset.remaining = '300';
+                                noteDiv.innerHTML = `Your hold (<span class="remaining">5:00</span>)`;
+                                startCardCountdown(noteDiv);
+
+                                selectedSeats.push(seatNumber);
+                                selectedSeat.textContent = selectedSeats.join(', ');
+                                selectedSeatsInput.value = selectedSeats.join(',');
+                                actions.classList.add('visible');
+                                updateActionButtons();
+                            } else {
+                                alert(data.message || 'Failed to lock seat. It may have been locked by another passenger.');
+                                window.location.reload();
+                            }
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            alert('Error connecting to the server. Please try again.');
+                        });
+                    } else {
+                        // Request hold cancellation/unlock on the server
+                        const formData = new FormData();
+                        formData.append('journey_date', journeyDate);
+                        formData.append('action', 'cancel');
+
+                        fetch(`/seat-action/${busId}/${seatNumber}`, {
+                            method: 'POST',
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                            body: formData
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                card.classList.remove('selected');
+                                card.classList.remove('seat-locked');
+                                card.classList.add('available');
+                                card.dataset.seatStatus = 'AVAILABLE';
+                                card.dataset.lockedByCurrent = 'false';
+
+                                const noteDiv = card.querySelector('.seat-note');
+                                if (noteDiv) {
+                                    if (noteDiv.intervalId) clearInterval(noteDiv.intervalId);
+                                    noteDiv.remove();
+                                }
+
+                                selectedSeats = selectedSeats.filter(num => num !== seatNumber);
+                                selectedSeat.textContent = selectedSeats.length > 0 ? selectedSeats.join(', ') : 'None';
+                                selectedSeatsInput.value = selectedSeats.join(',');
+                                actions.classList.toggle('visible', selectedSeats.length > 0);
+                                if (selectedSeats.length > 0) {
+                                    updateActionButtons();
+                                }
+                            } else {
+                                alert(data.message || 'Failed to release seat hold.');
+                            }
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            alert('Error connecting to the server.');
+                        });
+                    }
+                });
+            });
+
+            if (selectedSeats.length > 0) {
+                selectedSeat.textContent = selectedSeats.join(', ');
+                selectedSeatsInput.value = selectedSeats.join(',');
+                actions.classList.add('visible');
+                updateActionButtons();
+            }
+
+            closeActionBtn.addEventListener('click', () => {
+                if (selectedSeats.length === 0) return;
+
+                // Release all active holds on the server
+                const releasePromises = selectedSeats.map(seatNumber => {
+                    const formData = new FormData();
+                    formData.append('journey_date', '{{ journey_date }}');
+                    formData.append('action', 'cancel');
+                    return fetch(`/seat-action/{{ bus.bus_id }}/${seatNumber}`, {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        body: formData
+                    }).then(res => res.json());
+                });
+
+                Promise.all(releasePromises)
+                    .then(() => {
+                        seatCards.forEach((c) => {
+                            if (c.classList.contains('selected')) {
+                                c.classList.remove('selected');
+                                c.classList.remove('seat-locked');
+                                c.classList.add('available');
+                                c.dataset.seatStatus = 'AVAILABLE';
+                                c.dataset.lockedByCurrent = 'false';
+                                const noteDiv = c.querySelector('.seat-note');
+                                if (noteDiv) {
+                                    if (noteDiv.intervalId) clearInterval(noteDiv.intervalId);
+                                    noteDiv.remove();
+                                }
+                            }
+                        });
+                        selectedSeats = [];
+                        selectedSeat.textContent = 'None';
+                        selectedSeatsInput.value = '';
+                        actions.classList.remove('visible');
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        window.location.reload();
+                    });
+            });
+
+            // Start countdown for existing locked seats on page load
+            const notes = document.querySelectorAll('.seat-note[data-remaining]');
+            notes.forEach((note) => {
+                startCardCountdown(note);
             });
         });
     </script>
+
 </body>
 </html>
