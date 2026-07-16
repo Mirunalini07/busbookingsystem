@@ -72,8 +72,8 @@ def get_client_ip():
     return request.remote_addr or "unknown"
 
 
-def track_visitor(role='user'):
-    visitor_id = request.cookies.get("visitor_id")
+def track_visitor(role='user', custom_visitor_id=None):
+    visitor_id = custom_visitor_id or request.cookies.get("visitor_id")
     if not visitor_id:
         visitor_id = str(uuid.uuid4())
 
@@ -238,6 +238,7 @@ def home():
             buses=manager.buses.values(),
             journey_date="2026-07-01",
             user_role=user_role,
+            visitor_name=visitor_id if user_role == 'user' else None,
             merge_message=None,
             merge_alert_buses=manager.merge_alert_buses,
             can_undo_merge=manager.can_undo_merge() if hasattr(manager, 'can_undo_merge') else False
@@ -253,21 +254,24 @@ def home():
 @app.route("/login", methods=["POST"])
 def login():
 
-    username = request.form.get("username", "")
-    password = request.form.get("password", "")
     role = request.form.get("role", "user")
+    password = request.form.get("password", "")
 
     if role == "admin":
+        username = request.form.get("admin_username", "")
         if not username or not password:
             return "Admin username and password are required ❌"
         if not admin.login(username, password):
             return "Invalid Credentials ❌"
     elif role == "user":
-        pass
+        username = request.form.get("username", "")
+        if not username:
+            return "Name is required for normal user ❌"
     else:
         return "Invalid role ❌"
 
-    visitor_id = track_visitor(role)
+    visitor_id = track_visitor(role, custom_visitor_id=username)
+    manager.logger.log(f"{role.capitalize()} '{username}' logged in successfully")
 
     visitor_count, device_counts = get_visitor_stats()
     resource_stats = get_current_resource_metrics()
@@ -296,6 +300,8 @@ def login():
 
         user_role=role,
 
+        visitor_name=visitor_id if role == 'user' else None,
+
         merge_message=None,
 
         merge_alert_buses=manager.merge_alert_buses,
@@ -305,6 +311,17 @@ def login():
     ))
     response.set_cookie("visitor_id", visitor_id, httponly=True, samesite="Lax")
     response.set_cookie("user_role", role, httponly=True, samesite="Lax")
+    return response
+
+
+@app.route("/logout")
+def logout():
+    visitor_id = request.cookies.get("visitor_id", "Unknown")
+    user_role = request.cookies.get("user_role", "user")
+    manager.logger.log(f"{user_role.capitalize()} '{visitor_id}' logged out")
+    response = redirect(url_for("home"))
+    response.delete_cookie("visitor_id")
+    response.delete_cookie("user_role")
     return response
 
 

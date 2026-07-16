@@ -19,8 +19,12 @@
 
         <input type="hidden" name="role" value="user" id="roleInput">
 
-        <div id="admin-fields" class="admin-fields">
-            <input type="text" name="username" placeholder="Admin Username" id="username">
+        <div id="user-fields" class="role-fields">
+            <input type="text" name="username" placeholder="Enter Your Name" id="normal_username" required>
+        </div>
+
+        <div id="admin-fields" class="role-fields admin-fields">
+            <input type="text" name="admin_username" placeholder="Admin Username" id="admin_username">
             <input type="password" name="password" placeholder="Password" id="password">
         </div>
 
@@ -31,17 +35,29 @@
 <script>
     const roleSlider = document.getElementById('roleSlider');
     const roleInput = document.getElementById('roleInput');
+    const userFields = document.getElementById('user-fields');
     const adminFields = document.getElementById('admin-fields');
-    const usernameInput = document.getElementById('username');
+    const normalUsernameInput = document.getElementById('normal_username');
+    const adminUsernameInput = document.getElementById('admin_username');
     const passwordInput = document.getElementById('password');
     const roleLabels = document.querySelectorAll('.slider-label');
 
     function selectRole(role) {
         roleInput.value = role;
-        const showAdmin = role === 'admin';
-        adminFields.classList.toggle('show', showAdmin);
-        usernameInput.required = showAdmin;
-        passwordInput.required = showAdmin;
+        const isUser = role === 'user';
+        const isAdmin = role === 'admin';
+        
+        userFields.classList.toggle('show', isUser);
+        adminFields.classList.toggle('show', isAdmin);
+        
+        normalUsernameInput.required = isUser;
+        normalUsernameInput.disabled = !isUser;
+        
+        adminUsernameInput.required = isAdmin;
+        adminUsernameInput.disabled = !isAdmin;
+        
+        passwordInput.required = isAdmin;
+        passwordInput.disabled = !isAdmin;
 
         roleLabels.forEach((label) => {
             label.classList.toggle('active', label.dataset.role === role);

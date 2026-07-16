@@ -20,7 +20,8 @@
         </div>
 
         <div class="welcome">
-            Welcome, {{ 'Admin' if user_role == 'admin' else 'Guest' }} 👋
+            Welcome, {{ 'Admin' if user_role == 'admin' else (visitor_name or 'Guest') }} 👋
+            <a href="/logout" class="logout-link">Logout</a>
         </div>
 
     </div>

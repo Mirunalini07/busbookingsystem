@@ -92,18 +92,17 @@ body {
             color: #fff;
         }
 
-        .admin-fields {
-            display: none;
+        .role-fields {
             opacity: 0;
             max-height: 0;
             overflow: hidden;
             transition: opacity 0.3s ease, max-height 0.3s ease;
         }
 
-        .admin-fields.show {
-            display: block;
+        .role-fields.show {
             opacity: 1;
             max-height: 200px;
+            margin-bottom: 10px;
         }
 
         button {
