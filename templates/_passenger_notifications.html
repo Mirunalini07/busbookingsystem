@@ -1,8 +1,8 @@
 {% if user_role == 'user' and passenger_notifications %}
-<div class="passenger-notifications">
+<div class="passenger-notifications" id="passenger-notifications-container">
     <div class="passenger-notifications-header">
         <span class="passenger-notifications-title">Seat Update</span>
-        <form method="POST" action="/dismiss-notifications" class="inline-form">
+        <form id="dismiss-notifications-form" method="POST" action="/dismiss-notifications" class="inline-form">
             <input type="hidden" name="next" value="{{ request.path }}{% if request.query_string %}?{{ request.query_string }}{% endif %}">
             <button type="submit" class="dismiss-notifications-btn">Dismiss</button>
         </form>
@@ -16,4 +16,54 @@
     </div>
     {% endfor %}
 </div>
+
+<script>
+(function() {
+    function setupDismiss() {
+        const form = document.getElementById('dismiss-notifications-form');
+        const container = document.getElementById('passenger-notifications-container');
+        if (form && container) {
+            form.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                // Get the current height to ensure smooth max-height transition
+                container.style.maxHeight = container.offsetHeight + 'px';
+                // Trigger layout reflow
+                container.offsetHeight;
+                
+                // Enable transitions and animate out
+                container.style.transition = 'opacity 0.3s ease, transform 0.3s ease, max-height 0.3s ease, margin 0.3s ease, padding 0.3s ease';
+                container.style.opacity = '0';
+                container.style.transform = 'translateY(-15px)';
+                container.style.maxHeight = '0px';
+                container.style.marginTop = '0px';
+                container.style.marginBottom = '0px';
+                container.style.paddingTop = '0px';
+                container.style.paddingBottom = '0px';
+                container.style.overflow = 'hidden';
+                container.style.borderWidth = '0px';
+                
+                // Remove container from the DOM after the animation completes
+                setTimeout(function() {
+                    container.remove();
+                }, 300);
+
+                // Send background fetch POST request to persist dismissal
+                fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form)
+                }).catch(function(error) {
+                    console.error('Error dismissing notifications:', error);
+                });
+            });
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupDismiss);
+    } else {
+        setupDismiss();
+    }
+})();
+</script>
 {% endif %}
