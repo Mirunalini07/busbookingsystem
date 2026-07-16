@@ -8,6 +8,7 @@ import uuid
 import time
 from datetime import datetime
 
+#creating Flask app
 app = Flask(__name__)
 
 admin = Admin("admin", "zoho123")
@@ -21,7 +22,7 @@ resource_metrics = {
 prev_cpu_times = psutil.cpu_times()
 DB_PATH = os.path.join(os.path.dirname(__file__), "visitors.db")
 
-
+#initializing database and creating tables if they dont exist
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("""
