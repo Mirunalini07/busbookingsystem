@@ -22,17 +22,31 @@ class Logger:
         while True:
             message = self.queue.get()
             print(message)
-            start = time.perf_counter()
-            with open("archive.log", "a") as file:
-                file.write(message + "\n")
-            end = time.perf_counter()
-            write_time_ms = (end - start) * 1000
-            self.disk_write_times.append(write_time_ms)
-            self.total_logs_written += 1
+            success = False
+            retries = 3
+            while not success and retries > 0:
+                try:
+                    start = time.perf_counter()
+                    with open("archive.log", "a", encoding="utf-8") as file:
+                        file.write(message + "\n")
+                    end = time.perf_counter()
+                    write_time_ms = (end - start) * 1000
+                    self.disk_write_times.append(write_time_ms)
+                    self.total_logs_written += 1
+                    success = True
+                except Exception as e:
+                    retries -= 1
+                    print(f"Error writing to archive.log: {e}. Retries left: {retries}")
+                    if retries > 0:
+                        time.sleep(0.5)
+            
             self.queue.task_done()
 
-            if self.total_logs_written % 5 == 0:
-                self.show_disk_io_stats()
+            if success and self.total_logs_written % 5 == 0:
+                try:
+                    self.show_disk_io_stats()
+                except Exception as e:
+                    print(f"Error showing disk IO stats: {e}")
     def show_disk_io_stats(self):
         if not self.disk_write_times:
             print("No Disk I/O recorded.")
@@ -49,4 +63,4 @@ class Logger:
         print(f"Throughput : {throughput_per_sec:.2f} logs/sec")
         print(f"Maximum Write Time : {max(self.disk_write_times):.4f} ms")
         print(f"Minimum Write Time : {min(self.disk_write_times):.4f} ms")
-        print("===============================\n") 
+        print("===============================\n")

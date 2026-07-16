@@ -1,5 +1,6 @@
 import threading
 import copy
+import time
 from logger import Logger
 from models import Bus
 
@@ -19,6 +20,49 @@ class BookingManager:
         self.merge_alert_buses = set()
         self.last_merge_allocations = None
         self.passenger_notifications = {}
+        
+        # Session timeout management (60 seconds session timeout)
+        self.active_sessions = {}
+        self.session_timeout = 60
+        self.session_checker_thread = threading.Thread(target=self.check_session_timeouts)
+        self.session_checker_thread.daemon = True
+        self.session_checker_thread.start()
+
+    def register_login(self, visitor_id, role):
+        with self.lock:
+            self.active_sessions[visitor_id] = {
+                'role': role,
+                'last_activity': time.time()
+            }
+
+    def register_activity(self, visitor_id, role):
+        with self.lock:
+            self.active_sessions[visitor_id] = {
+                'role': role,
+                'last_activity': time.time()
+            }
+
+    def register_logout(self, visitor_id):
+        with self.lock:
+            self.active_sessions.pop(visitor_id, None)
+
+    def is_session_active(self, visitor_id):
+        with self.lock:
+            return visitor_id in self.active_sessions
+
+    def check_session_timeouts(self):
+        while True:
+            time.sleep(5)
+            now = time.time()
+            timed_out_users = []
+            with self.lock:
+                for visitor_id, session in list(self.active_sessions.items()):
+                    if now - session['last_activity'] > self.session_timeout:
+                        timed_out_users.append((visitor_id, session['role']))
+                        self.active_sessions.pop(visitor_id, None)
+            
+            for visitor_id, role in timed_out_users:
+                self.logger.log(f"{role.capitalize()} '{visitor_id}' automatically logged out (session inactive/closed)")
 
     def add_bus(self, bus):
         self.buses[bus.bus_id] = bus

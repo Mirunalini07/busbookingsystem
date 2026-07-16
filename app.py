@@ -265,6 +265,26 @@ def get_dashboard_context(user_role, visitor_id=None, search_source=None, search
 # Routes
 # -----------------------------
 
+@app.before_request
+def check_session():
+    if request.path.startswith('/static') or request.path == '/favicon.ico':
+        return
+    if request.path in ['/login', '/logout']:
+        return
+
+    visitor_id = request.cookies.get("visitor_id")
+    user_role = request.cookies.get("user_role")
+
+    if visitor_id and user_role in ['admin', 'user']:
+        if not manager.is_session_active(visitor_id):
+            # Session expired/auto-logged out: clear cookies and redirect to login
+            response = make_response(redirect(url_for("home")))
+            response.delete_cookie("visitor_id")
+            response.delete_cookie("user_role")
+            return response
+        else:
+            manager.register_activity(visitor_id, user_role)
+
 @app.route("/")
 def home():
     visitor_id = request.cookies.get("visitor_id")
@@ -308,6 +328,7 @@ def login():
         return "Invalid role ❌"
 
     visitor_id = track_visitor(role, custom_visitor_id=username)
+    manager.register_login(visitor_id, role)
     manager.logger.log(f"{role.capitalize()} '{username}' logged in successfully")
 
     context = get_dashboard_context(role, visitor_id)
@@ -322,6 +343,7 @@ def logout():
     visitor_id = request.cookies.get("visitor_id", "Unknown")
     user_role = request.cookies.get("user_role", "user")
     manager.logger.log(f"{user_role.capitalize()} '{visitor_id}' logged out")
+    manager.register_logout(visitor_id)
     response = redirect(url_for("home"))
     response.delete_cookie("visitor_id")
     response.delete_cookie("user_role")
