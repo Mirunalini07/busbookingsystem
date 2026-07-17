@@ -5,6 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bus Seats</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <style>
+        .seat-card.selected {
+            border-color: #00d877 !important;
+            background: rgba(0, 216, 119, .22) !important;
+        }
+        .seat-card.selected .seat-number,
+        .seat-card.selected .seat-status,
+        .seat-card.selected .seat-note {
+            color: #071928 !important;
+        }
+        .seat-card.seat-booked,
+        .seat-card[data-seat-status="BOOKED"],
+        .seat-card.booked {
+            background: rgba(0, 216, 119, 0.14) !important;
+            border-color: #00d877 !important;
+        }
+    </style>
 </head>
 <body>
     <div class="header">
@@ -209,6 +226,37 @@
                     const busId = '{{ bus.bus_id }}';
 
                     if (!isCurrentlySelected) {
+                        const isClickedBooked = card.dataset.seatStatus === 'BOOKED' && card.dataset.bookedByCurrent === 'true';
+                        
+                        // Check if existing selected seats are of a different type
+                        const hasBookedSelected = selectedSeats.some(num => {
+                            const c = Array.from(seatCards).find(cardEl => cardEl.dataset.seatNumber === num);
+                            return c && c.dataset.seatStatus === 'BOOKED';
+                        });
+                        const hasLockableSelected = selectedSeats.some(num => {
+                            const c = Array.from(seatCards).find(cardEl => cardEl.dataset.seatNumber === num);
+                            return c && c.dataset.seatStatus !== 'BOOKED';
+                        });
+                        
+                        if (isClickedBooked && hasLockableSelected) {
+                            alert("Please deselect your pending seat selection before cancelling a booked ticket.");
+                            return;
+                        }
+                        if (!isClickedBooked && hasBookedSelected) {
+                            alert("Please deselect your booked ticket selection before selecting new seats.");
+                            return;
+                        }
+
+                        if (isClickedBooked) {
+                            card.classList.add('selected');
+                            selectedSeats.push(seatNumber);
+                            selectedSeat.textContent = selectedSeats.join(', ');
+                            selectedSeatsInput.value = selectedSeats.join(',');
+                            actions.classList.add('visible');
+                            updateActionButtons();
+                            return;
+                        }
+
                         // Request seat lock on the server
                         const formData = new FormData();
                         formData.append('journey_date', journeyDate);
@@ -252,6 +300,18 @@
                             alert('Error connecting to the server. Please try again.');
                         });
                     } else {
+                        if (card.dataset.seatStatus === 'BOOKED' && card.dataset.bookedByCurrent === 'true') {
+                            card.classList.remove('selected');
+                            selectedSeats = selectedSeats.filter(num => num !== seatNumber);
+                            selectedSeat.textContent = selectedSeats.length > 0 ? selectedSeats.join(', ') : 'None';
+                            selectedSeatsInput.value = selectedSeats.join(',');
+                            actions.classList.toggle('visible', selectedSeats.length > 0);
+                            if (selectedSeats.length > 0) {
+                                updateActionButtons();
+                            }
+                            return;
+                        }
+
                         // Request hold cancellation/unlock on the server
                         const formData = new FormData();
                         formData.append('journey_date', journeyDate);
@@ -306,8 +366,12 @@
             closeActionBtn.addEventListener('click', () => {
                 if (selectedSeats.length === 0) return;
 
-                // Release all active holds on the server
+                // Release all active holds on the server (skip already booked seats)
                 const releasePromises = selectedSeats.map(seatNumber => {
+                    const card = Array.from(seatCards).find((c) => c.dataset.seatNumber === seatNumber);
+                    if (card && card.dataset.seatStatus === 'BOOKED') {
+                        return Promise.resolve({ success: true, isBooked: true });
+                    }
                     const formData = new FormData();
                     formData.append('journey_date', '{{ journey_date }}');
                     formData.append('action', 'cancel');
@@ -323,14 +387,16 @@
                         seatCards.forEach((c) => {
                             if (c.classList.contains('selected')) {
                                 c.classList.remove('selected');
-                                c.classList.remove('seat-locked');
-                                c.classList.add('available');
-                                c.dataset.seatStatus = 'AVAILABLE';
-                                c.dataset.lockedByCurrent = 'false';
-                                const noteDiv = c.querySelector('.seat-note');
-                                if (noteDiv) {
-                                    if (noteDiv.intervalId) clearInterval(noteDiv.intervalId);
-                                    noteDiv.remove();
+                                if (c.dataset.seatStatus === 'LOCKED') {
+                                    c.classList.remove('seat-locked');
+                                    c.classList.add('available');
+                                    c.dataset.seatStatus = 'AVAILABLE';
+                                    c.dataset.lockedByCurrent = 'false';
+                                    const noteDiv = c.querySelector('.seat-note');
+                                    if (noteDiv) {
+                                        if (noteDiv.intervalId) clearInterval(noteDiv.intervalId);
+                                        noteDiv.remove();
+                                    }
                                 }
                             }
                         });

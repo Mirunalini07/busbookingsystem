@@ -99,7 +99,7 @@ class BookingManager:
 
             seat.book(booking_id, user_id)
             self.logger.log(f"{user_id} booked seat {seat_number} in bus {bus_id}")
-            self.add_extra_buses_if_needed()
+            self.add_extra_buses_if_needed(bus_id, journey_date)
         return "Seat booked successfully"
     
     def cancel_booking(self, bus_id,journey_date, seat_number, user_id):
@@ -149,23 +149,56 @@ class BookingManager:
 
         return booked_seats / total_seats
 
-    def add_extra_buses_if_needed(self):
-        load_factor = self.calculate_load_factor()
+    def add_extra_buses_if_needed(self, bus_id, journey_date):
+        bus = self.buses.get(bus_id)
+        if not bus:
+            return
 
+        # Get all buses on the same route
+        route_buses = [
+            b for b in self.buses.values()
+            if b.source == bus.source and b.destination == bus.destination
+        ]
+
+        # Calculate total and booked seats for the route on this journey_date
+        total_seats = 0
+        booked_seats = 0
+        for b in route_buses:
+            seats = b.get_seats_for_date(journey_date)
+            total_seats += len(seats)
+            booked_seats += sum(1 for seat in seats if seat.status == "BOOKED")
+
+        if total_seats == 0:
+            return
+
+        load_factor = booked_seats / total_seats
         if load_factor < LOAD_THRESHOLD:
             return
-        current_bus_count = len(self.buses)
-        for i in range(BUSES_TO_ADD):
 
+        prefix = bus.bus_id[:3]
+        for _ in range(BUSES_TO_ADD):
             if len(self.buses) >= MAX_BUSES:
                 break
 
-            bus_number = len(self.buses) + 1
-            bus = Bus(f"BUS{bus_number:03}", SEATS_PER_BUS)
+            # Find a unique bus ID for the extra bus
+            extra_idx = 1
+            while True:
+                extra_bus_id = f"{prefix}_EX{extra_idx:02d}"
+                if extra_bus_id not in self.buses:
+                    break
+                extra_idx += 1
 
-            self.add_bus(bus)
-
-            self.logger.log(f"New bus added: {bus.bus_id}")
+            new_bus = Bus(
+                bus_id=extra_bus_id,
+                source=bus.source,
+                destination=bus.destination,
+                departure_time=bus.departure_time,
+                arrival_time=bus.arrival_time,
+                fare=bus.fare,
+                total_seats=bus.total_seats
+            )
+            self.add_bus(new_bus)
+            self.logger.log(f"New extra bus added due to 80% occupancy threshold exceeded: {new_bus.bus_id} on route {new_bus.source} -> {new_bus.destination} for {journey_date}")
             
     def get_low_load_buses(self):
         low_buses = []

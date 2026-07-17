@@ -20,33 +20,54 @@ class Logger:
         self.queue.put(entry)
     def process_logs(self):
         while True:
-            message = self.queue.get()
-            print(message)
-            success = False
-            retries = 3
-            while not success and retries > 0:
-                try:
-                    start = time.perf_counter()
-                    with open("archive.log", "a", encoding="utf-8") as file:
-                        file.write(message + "\n")
-                    end = time.perf_counter()
-                    write_time_ms = (end - start) * 1000
-                    self.disk_write_times.append(write_time_ms)
-                    self.total_logs_written += 1
-                    success = True
-                except Exception as e:
-                    retries -= 1
-                    print(f"Error writing to archive.log: {e}. Retries left: {retries}")
-                    if retries > 0:
-                        time.sleep(0.5)
-            
-            self.queue.task_done()
+            try:
+                # Block until at least one message is available
+                message = self.queue.get()
+                print(message)
+                batch = [message]
+                
+                # Retrieve any additional messages currently in the queue
+                while not self.queue.empty():
+                    try:
+                        msg = self.queue.get_nowait()
+                        print(msg)
+                        batch.append(msg)
+                    except:
+                        break
+                
+                success = False
+                retries = 3
+                while not success and retries > 0:
+                    try:
+                        start = time.perf_counter()
+                        with open("archive.log", "a", encoding="utf-8") as file:
+                            for msg in batch:
+                                file.write(msg + "\n")
+                        end = time.perf_counter()
+                        
+                        write_time_ms = (end - start) * 1000
+                        avg_time = write_time_ms / len(batch)
+                        for _ in range(len(batch)):
+                            self.disk_write_times.append(avg_time)
+                            self.total_logs_written += 1
+                        
+                        success = True
+                    except Exception as e:
+                        retries -= 1
+                        print(f"Error writing to archive.log: {e}. Retries left: {retries}")
+                        if retries > 0:
+                            time.sleep(0.5)
+                
+                for _ in range(len(batch)):
+                    self.queue.task_done()
 
-            if success and self.total_logs_written % 5 == 0:
-                try:
-                    self.show_disk_io_stats()
-                except Exception as e:
-                    print(f"Error showing disk IO stats: {e}")
+                if success and self.total_logs_written % 5 == 0:
+                    try:
+                        self.show_disk_io_stats()
+                    except Exception as e:
+                        print(f"Error showing disk IO stats: {e}")
+            except Exception as e:
+                print(f"Unexpected error in logger thread: {e}")
     def show_disk_io_stats(self):
         if not self.disk_write_times:
             print("No Disk I/O recorded.")
